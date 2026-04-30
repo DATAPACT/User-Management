@@ -1,4 +1,5 @@
 /demo
 demo/
 .codex
-
+.idea/
+__pycache__/

@@ -1,0 +1,36 @@
+services:
+  user-management:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8800:8800"
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+    container_name: user-management-local
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:8.0
+    container_name: mongo-local
+    ports:
+      - "27018:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=gz1mQj9JuNty4R1TNT2qeChDPtJFhsdGP00wUxHeytWvnXke3wFnpjjfC7Q6zy3YTiWT7CDXYRue5quZ5EnQw13MmizHdcpqm6Mp
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+    networks:
+      - upcast-local
+    command: ["--auth"]
+
+volumes:
+  mongo-data:
+
+networks:
+  upcast-local:

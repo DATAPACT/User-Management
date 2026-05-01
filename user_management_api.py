@@ -347,6 +347,11 @@ async def _find_keycloak_user_by_username(username: str, admin_token: str) -> Op
 
 
 async def _create_keycloak_user(user: User, raw_password: str, admin_token: str) -> str:
+
+    # creates the Keycloak account first.
+    # If Keycloak creation succeeds,
+    # it returns the Keycloak user id, stored as keycloak_sub.
+
     existing_keycloak_user = await _find_keycloak_user_by_email(str(user.username_email), admin_token)
     if existing_keycloak_user is not None:
         raise HTTPException(status_code=400, detail="Email already registered in Keycloak")
@@ -386,10 +391,7 @@ async def _create_keycloak_user(user: User, raw_password: str, admin_token: str)
         ],
     }
 
-    # Old code:
-    # registration only created the MongoDB user profile.
-    #
-    # New code:
+
     # create the Keycloak identity first so MongoDB can store the returned
     # Keycloak subject and keep both systems linked from the start.
     async with httpx.AsyncClient(timeout=20.0) as client_http:
@@ -540,6 +542,18 @@ async def verify_master(master_password_input: str) -> bool:
 async def register_user(user: User, master_password_input: str):
     await verify_master(master_password_input)
 
+    """
+        1. Validate input locally.
+        2. Create Keycloak user first, using Admin privilege.
+        3. Store returned Keycloak id as keycloak_sub in Mongo.
+        4. Insert Mongo profile.
+        5. If Mongo fails, delete the just-created Keycloak user.
+    """
+
+
+    # validating the master password with verify_master(...).
+    # then checks MongoDB for duplicates on username_email, and also checks that username is present and not already
+    # used locally.Password strength is validated with is_strong_password(...).
     if await users_collection.find_one({"username_email": user.username_email}):
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -559,8 +573,12 @@ async def register_user(user: User, master_password_input: str):
             detail=resp or "Password does not meet strength requirements",
         )
 
+
     raw_password = user.password
+
+    # get token using Admin user!
     admin_token = await _get_keycloak_admin_token()
+    # create a user in the Keycloak, get the keycloak-id
     keycloak_sub = await _create_keycloak_user(user, raw_password, admin_token)
 
     user_dict = None
@@ -569,10 +587,15 @@ async def register_user(user: User, master_password_input: str):
         user.keycloak_sub = keycloak_sub
         user.password = get_password_hash(raw_password)
         user_dict = user.model_dump(by_alias=True, exclude_unset=True)
+        # after getting keycloak-id, the user is inserted into MongoDB
         result = await users_collection.insert_one(user_dict)
         user_dict["_id"] = str(result.inserted_id)
         user_dict["password"] = None
     except Exception as exc:
+        # if inset into MongoDB fails
+        # rolls the Keycloak userback using _delete_keycloak_user
+        # That prevents ending up with a Keycloak user that has no matching Mongo profile.
+
         await _delete_keycloak_user(keycloak_sub, admin_token)
         raise HTTPException(
             status_code=400,

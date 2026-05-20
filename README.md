@@ -71,6 +71,11 @@ Get a user's details by email:
 curl -X GET "http://localhost:8800/user/details/?user_email=datapack_consumer3@example.com"
 ```
 
+Get a user's details by Keycloak user id:
+```bash
+curl -X GET "http://localhost:8800/user/details/?keycloak_sub=<keycloak_user_id>"
+```
+
 Check whether a user email exists:
 ```bash
 curl -X GET "http://localhost:8800/user/check_user_email/?user_email=datapack_consumer3@example.com"

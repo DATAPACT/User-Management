@@ -26,7 +26,7 @@ root_path = os.getenv("ROOT_PATH", "/user-management-api")
 
 app = FastAPI(
     title="User Management Service API",
-    description="UPCAST User Management Service API",
+    description="DIPS User Management Service API",
     version="1.0",
     root_path=root_path,
 )
@@ -205,9 +205,14 @@ def _keycloak_attr_list(value: Any) -> list[str]:
     return [value] if value else []
 
 
-async def _find_user(user_id: Optional[str], user_email: Optional[str]) -> dict[str, Any]:
+async def _find_user(
+    user_id: Optional[str],
+    user_email: Optional[str],
+    keycloak_sub: Optional[str] = None,
+) -> dict[str, Any]:
     user_by_id = None
     user_by_email = None
+    user_by_keycloak_sub = None
 
     if user_id:
         try:
@@ -222,15 +227,35 @@ async def _find_user(user_id: Optional[str], user_email: Optional[str]) -> dict[
         if user_by_email is None:
             raise HTTPException(status_code=404, detail="User not found")
 
+    if keycloak_sub:
+        user_by_keycloak_sub = await users_collection.find_one({"keycloak_sub": keycloak_sub})
+        if user_by_keycloak_sub is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
     if user_by_id and user_by_email and user_by_id["_id"] != user_by_email["_id"]:
         raise HTTPException(
             status_code=400,
             detail="user_id and user_email refer to different users",
         )
 
-    user = user_by_id or user_by_email
+    if user_by_id and user_by_keycloak_sub and user_by_id["_id"] != user_by_keycloak_sub["_id"]:
+        raise HTTPException(
+            status_code=400,
+            detail="user_id and keycloak_sub refer to different users",
+        )
+
+    if user_by_email and user_by_keycloak_sub and user_by_email["_id"] != user_by_keycloak_sub["_id"]:
+        raise HTTPException(
+            status_code=400,
+            detail="user_email and keycloak_sub refer to different users",
+        )
+
+    user = user_by_id or user_by_email or user_by_keycloak_sub
     if user is None:
-        raise HTTPException(status_code=400, detail="Either user_id or user_email is required")
+        raise HTTPException(
+            status_code=400,
+            detail="Either user_id, user_email, or keycloak_sub is required",
+        )
     return user
 
 
@@ -802,9 +827,14 @@ async def update_user_details(
 async def get_user_details(
     user_id: Optional[str] = Query(None, description="ID of the user to fetch"),
     user_email: Optional[EmailStr] = Query(None, description="Email of the user to fetch"),
+    keycloak_sub: Optional[str] = Query(None, description="Keycloak user id to fetch"),
 ):
     try:
-        user = await _find_user(user_id=user_id, user_email=str(user_email) if user_email else None)
+        user = await _find_user(
+            user_id=user_id,
+            user_email=str(user_email) if user_email else None,
+            keycloak_sub=keycloak_sub,
+        )
         return _mask_password(user)
     except HTTPException:
         raise

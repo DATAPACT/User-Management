@@ -58,6 +58,7 @@ curl -X POST "http://localhost:8800/user/register?master_password_input=master_p
     "password": "StrongPass1!",
     "type": "consumer",
     "organization": "ACME"
+    ...
   }'
 ```
 
@@ -92,4 +93,4 @@ curl -X PUT "http://localhost:8800/user/update-details?user_id=<user_id>" \
     "phone": "+44-000-000-000"
   }'
 ```
-# User-Management
+

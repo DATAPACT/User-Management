@@ -26,6 +26,7 @@ urlpatterns = [
     # path("sign-up/", views.sign_up_view, name="sign_up"),
     path("register/", views.register, name="register"),
     path("manage-account/", views.manage_account_view, name="manage_account"),
-    path("check-user-email/", views.check_user_email_view, name="check_user_email"),
-    path("check-username/", views.check_username_view, name="check_username"),
+    path("check-user-email/", views.check_user_email, name="check_user_email"),
+    path("check-username/", views.check_username, name="check_username"),
+    path("check-strong-password/", views.check_strong_password, name="check_strong_password"),
 ]

@@ -26,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-@7_cz$le7=a8+ic7l8w-%4*s$k9(^^6xuju$2wf+jcc+#-5xxp"
 
 
-API_BASE_URL = os.getenv("USER_MANAGEMENT_API_URL")
+API_USER_MANAGEMENT_BASE_URL = os.getenv("USER_MANAGEMENT_API_URL")
 
 KEYCLOAK_ISSUER = os.environ.get("KEYCLOAK_ISSUER", "")
 if not KEYCLOAK_ISSUER:

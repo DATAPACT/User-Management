@@ -23,7 +23,7 @@ from pymongo import MongoClient as PyMongoClient
 
 logger = logging.getLogger(__name__)
 
-API_BASE_URL = os.getenv("USER_MANAGEMENT_API_URL", "http://localhost:8800")
+API_USER_MANAGEMENT_BASE_URL = os.getenv("USER_MANAGEMENT_API_URL", "http://localhost:8800")
 
 
 _mongo_client = None
@@ -78,10 +78,11 @@ def _email_exists_response_value(data):
         if key in data:
             return bool(data[key])
 
-def check_user_email(user_email: str) :
-    endpoint_url = f"{API_BASE_URL}/user/check_user_email/"
+def _check_user_email_exists(user_email: str) :
+    endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/check_user_email/"
 
     try:
+
         response = requests.get(endpoint_url, params={"user_email": user_email}, timeout=10)
         if response.status_code == 404:
             return False
@@ -95,8 +96,8 @@ def check_user_email(user_email: str) :
     return None
 
 
-def check_username(username: str):
-    endpoint_url = f"{API_BASE_URL}/user/check_username/"
+def _check_username_exists(username: str):
+    endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/check_username/"
 
     try:
         response = requests.get(endpoint_url, params={"username": username}, timeout=10)
@@ -112,11 +113,18 @@ def check_username(username: str):
     return None
 
 
-# def login_view(request):
-#   if request.method == "POST":
-#     messages.info(request, "Login handling is not implemented yet in the Django frontend.")
-#   return render(request, "login.html")
-
+def is_strong_password(password: str) -> tuple[bool, str]:
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain at least one uppercase letter."
+    if not re.search(r"[a-z]", password):
+        return False, "Password must contain at least one lowercase letter."
+    if not re.search(r"\d", password):
+        return False, "Password must contain at least one digit."
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False, "Password must contain at least one special character."
+    return True, "Password is strong."
 
 def index_view(request):
   return render(request, "index.html")
@@ -204,22 +212,24 @@ def register(request):
             messages.error(request, "The confirmation password does not match.")
             return render(request, "sign-up.html", {"form_data": form_data})
 
-        email_exists = check_user_email(email)
+        email_exists = _check_user_email_exists(email)
         if email_exists is True:
             messages.error(request, "Email already registered, please use another email.")
             return render(request, "sign-up.html", {"form_data": form_data})
 
-        username_exists = check_username(username)
+        username_exists = _check_username_exists(username)
         if username_exists is True:
             messages.error(request, "Username already registered, please use another username.")
             return render(request, "sign-up.html", {"form_data": form_data})
 
+        is_strong, message = is_strong_password(password)
 
-        # user registration is handled by user-management-service. Keycloak is
-        # the authentication authority, while profile creation lives in the
-        # dedicated user-management service.
+        if not is_strong:
+            messages.error(request, message)
+            return render(request, "sign-up.html", {"form_data": form_data})
 
-        endpoint_url = f"{API_BASE_URL}/user/register/"
+        # user registration is handled by user-management-service. Keycloak is the authentication authority 
+        endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/register/"
 
         try:
             response = requests.post(f"{endpoint_url}?master_password_input={master_password}",
@@ -252,29 +262,96 @@ def manage_account_view(request):
   return render(request, "manage_account.html")
 
 
-def check_user_email_view(request):
-  user_email = (request.GET.get("email") or request.GET.get("user_email") or "").strip()
-  if not user_email:
-    return JsonResponse({"detail": "Email is required"}, status=400)
+def _check_valid_email(email):
+    email = (email or "").strip()
+    if not email:
+        return False, "Email is required."
 
-  try:
-    data = check_user_email(user_email)
-    return JsonResponse(data)
-  except Exception as exc:
-    return JsonResponse({"detail": str(exc)}, status=502)
+    if email.count("@") != 1:
+        return False, "Email must contain exactly one '@' symbol."
+
+    local_part, domain_part = email.split("@", 1)
+
+    if not local_part:
+        return False, "Email must include text before '@'."
+
+    if not domain_part:
+        return False, "Email must include a domain after '@'."
+
+    if "." not in domain_part:
+        return False, "Email domain must include a '.' and a valid suffix."
+
+    domain_name, _, tld = domain_part.rpartition(".")
+    if not domain_name:
+        return False, "Email domain name is missing before the final '.'."
+
+    if len(tld) < 2:
+        return False, "Email domain suffix must contain at least 2 letters."
+
+    EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.I)
+    valid = EMAIL_PATTERN.fullmatch(email) is not None
+    if not valid:
+        return False, "Email contains invalid characters or format."
+
+    return True, "Email is valid."
+
+def check_user_email(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    email = (request.GET.get("email") or "").strip()
+    if not email:
+        return JsonResponse({"error": "Missing email"}, status=400)
 
 
-def check_username_view(request):
-  username = (request.GET.get("username") or "").strip()
-  if not username:
-    return JsonResponse({"detail": "Username is required"}, status=400)
+    is_valid, megs = _check_valid_email(email)
+    if not is_valid:
+        return JsonResponse(
+            {"valid": False, "detail": megs},
+            status=400,
+        )
 
-  try:
-    data = check_username(username)
-    return JsonResponse(data)
-  except Exception as exc:
-    return JsonResponse({"detail": str(exc)}, status=502)
+    exists = _check_user_email_exists(email)
+    if exists is None:
+        return JsonResponse(
+            {"error": "Email availability service is unavailable."},
+            status=503,
+        )
 
+    return JsonResponse({"exists": exists})
+
+
+def check_username(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    username = (request.GET.get("username") or "").strip()
+    if not username:
+        return JsonResponse({"error": "Missing username"}, status=400)
+
+    exists = _check_username_exists(username)
+    if exists is None:
+        return JsonResponse(
+            {"error": "Username availability service is unavailable."},
+            status=503,
+        )
+
+    return JsonResponse({"exists": exists})
+
+def check_strong_password(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    password = (request.GET.get("password") or "").strip()
+
+    if not password:
+        return JsonResponse({"error": "Missing password"}, status=400)
+
+    is_strong, megs  = is_strong_password(password)
+
+    if not is_strong:
+        return JsonResponse({"valid": False, "detail": megs})
+
+    return JsonResponse({"valid": True, "detail": megs})
 
 
 def login(request):

@@ -25,7 +25,7 @@
           <div class="col-lg-7">
 
 
-            <form method="post" action="{% url 'register' %}" id="signUpForm">
+            <form method="post" action="{% url 'register' %}" id="signUpForm" novalidate>
             {% csrf_token %}
 
             <p class="text-muted">
@@ -126,11 +126,13 @@
             <div class="mb-4">
               <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
               <input type="password" class="form-control" id="password" name="password" required>
+              <div id="passwordStrength" class="form-text" aria-live="polite"></div>
             </div>
 
             <div class="mb-4">
               <label for="confirmpassword" class="form-label">Confirm password <span class="text-danger">*</span></label>
               <input type="password" class="form-control" id="confirmpassword" name="confirmpassword" required>
+              <div id="confirmPasswordHelp" class="form-text" aria-live="polite"></div>
             </div>
 
             <button type="submit" class="btn btn-primary" id="signUpButton">Sign Up</button>
@@ -168,6 +170,10 @@
   (function () {
     const form = document.getElementById("signUpForm");
     const signUpButton = document.getElementById("signUpButton");
+    const passwordInput = document.getElementById("password");
+    const passwordStrength = document.getElementById("passwordStrength");
+    const confirmPasswordInput = document.getElementById("confirmpassword");
+    const confirmPasswordHelp = document.getElementById("confirmPasswordHelp");
     const checks = [
       {
         input: document.getElementById("email"),
@@ -188,6 +194,8 @@
         available: "Username is available."
       }
     ];
+    let passwordIsStrong = false;
+    let passwordsMatch = false;
 
     function setFieldState(check, state, message) {
       check.output.textContent = message || "";
@@ -211,8 +219,13 @@
       check.lastCheckedValue = value;
       check.lastExists = false;
 
-      if (!value || !check.input.checkValidity()) {
+      if (!value) {
         setFieldState(check, "idle", "");
+        return false;
+      }
+
+      if (!check.input.checkValidity()) {
+        setFieldState(check, "invalid", check.input.validationMessage);
         return false;
       }
 
@@ -225,8 +238,14 @@
           return false;
         }
         if (!response.ok) {
-          setFieldState(check, "idle", "");
-          return false;
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (error) {
+            data = {};
+          }
+          setFieldState(check, "invalid", data.detail || data.error || "This value is not valid.");
+          return true;
         }
 
         const data = await response.json();
@@ -246,6 +265,90 @@
       }
     }
 
+    function setPasswordState(state, message) {
+      passwordStrength.textContent = message || "";
+      passwordStrength.classList.remove("text-danger", "text-success", "text-muted");
+      passwordInput.classList.remove("is-invalid", "is-valid");
+
+      if (state === "invalid") {
+        passwordStrength.classList.add("text-danger");
+        passwordInput.classList.add("is-invalid");
+      } else if (state === "valid") {
+        passwordStrength.classList.add("text-success");
+        passwordInput.classList.add("is-valid");
+      } else if (state === "checking") {
+        passwordStrength.classList.add("text-muted");
+      }
+    }
+
+    function setConfirmPasswordState(state, message) {
+      confirmPasswordHelp.textContent = message || "";
+      confirmPasswordHelp.classList.remove("text-danger", "text-success", "text-muted");
+      confirmPasswordInput.classList.remove("is-invalid", "is-valid");
+
+      if (state === "invalid") {
+        confirmPasswordHelp.classList.add("text-danger");
+        confirmPasswordInput.classList.add("is-invalid");
+      } else if (state === "valid") {
+        confirmPasswordHelp.classList.add("text-success");
+        confirmPasswordInput.classList.add("is-valid");
+      } else if (state === "checking") {
+        confirmPasswordHelp.classList.add("text-muted");
+      }
+    }
+
+    async function checkStrongPassword() {
+      const value = passwordInput.value;
+      passwordIsStrong = false;
+
+      if (!value) {
+        setPasswordState("idle", "");
+        return false;
+      }
+
+      setPasswordState("checking", "Checking password strength...");
+
+      try {
+        const response = await fetch(
+          `{% url 'check_strong_password' %}?password=${encodeURIComponent(value)}`
+        );
+        const data = await response.json();
+
+        passwordIsStrong = Boolean(data.valid);
+        if (!passwordIsStrong) {
+          setPasswordState("invalid", data.detail || data.error || "Password is not strong.");
+          return false;
+        }
+
+        setPasswordState("valid", data.detail || "Password is strong.");
+        return true;
+      } catch (error) {
+        setPasswordState("idle", "");
+        return false;
+      }
+    }
+
+    function checkConfirmPassword() {
+      const passwordValue = passwordInput.value;
+      const confirmValue = confirmPasswordInput.value;
+
+      passwordsMatch = false;
+
+      if (!confirmValue) {
+        setConfirmPasswordState("idle", "");
+        return false;
+      }
+
+      if (passwordValue !== confirmValue) {
+        setConfirmPasswordState("invalid", "Passwords do not match.");
+        return false;
+      }
+
+      passwordsMatch = true;
+      setConfirmPasswordState("valid", "Passwords match.");
+      return true;
+    }
+
     checks.forEach(function (check) {
       check.lastCheckedValue = "";
       check.lastExists = false;
@@ -257,22 +360,61 @@
       check.input.addEventListener("input", function () {
         check.lastCheckedValue = "";
         check.lastExists = false;
-        setFieldState(check, "idle", "");
+        const value = check.input.value.trim();
+        if (!value) {
+          setFieldState(check, "idle", "");
+        } else if (!check.input.checkValidity()) {
+          setFieldState(check, "invalid", check.input.validationMessage);
+        } else {
+          setFieldState(check, "idle", "");
+        }
       });
     });
 
+    passwordInput.addEventListener("blur", function () {
+      checkStrongPassword();
+    });
+
+    passwordInput.addEventListener("input", function () {
+      passwordIsStrong = false;
+      setPasswordState("idle", "");
+      checkConfirmPassword();
+    });
+
+    confirmPasswordInput.addEventListener("blur", function () {
+      checkConfirmPassword();
+    });
+
+    confirmPasswordInput.addEventListener("input", function () {
+      checkConfirmPassword();
+    });
+
     form.addEventListener("submit", async function (event) {
+      const invalidFormatCheck = checks.find(function (check) {
+        const value = check.input.value.trim();
+        return value && !check.input.checkValidity();
+      });
+      if (invalidFormatCheck) {
+        event.preventDefault();
+        setFieldState(invalidFormatCheck, "invalid", invalidFormatCheck.input.validationMessage);
+        return;
+      }
+
       const checksToRun = checks.filter(function (check) {
         const value = check.input.value.trim();
         return check.pending || (value && check.input.checkValidity() && value !== check.lastCheckedValue);
       });
 
-      if (checksToRun.length) {
+      const shouldCheckPassword = passwordInput.value.trim().length > 0 && !passwordIsStrong;
+      const confirmPasswordValid = checkConfirmPassword();
+
+      if (checksToRun.length || shouldCheckPassword || !confirmPasswordValid) {
         event.preventDefault();
         signUpButton.disabled = true;
         const results = await Promise.all(checksToRun.map(checkAvailability));
+        const strongPassword = shouldCheckPassword ? await checkStrongPassword() : passwordIsStrong;
         signUpButton.disabled = false;
-        if (!results.some(Boolean)) {
+        if (!results.some(Boolean) && strongPassword && confirmPasswordValid) {
           form.requestSubmit();
         }
         return;
@@ -284,6 +426,16 @@
       if (duplicateCheck) {
         event.preventDefault();
         setFieldState(duplicateCheck, "invalid", duplicateCheck.duplicate);
+      }
+
+      if (!passwordIsStrong) {
+        event.preventDefault();
+        checkStrongPassword();
+      }
+
+      if (!passwordsMatch) {
+        event.preventDefault();
+        checkConfirmPassword();
       }
     });
   })();

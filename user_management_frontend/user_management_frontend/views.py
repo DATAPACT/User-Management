@@ -133,6 +133,19 @@ def _update_user_details(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any
     return response.json()
 
 
+def _update_user_password(payload: Dict[str, Any]) -> Dict[str, Any]:
+    endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/update-password"
+    master_password = os.getenv("MASTER_PASSWORD", "master_password")
+    response = requests.put(
+        endpoint_url,
+        params={"master_password_input": master_password},
+        json=payload,
+        timeout=15,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def is_strong_password(password: str) -> tuple[bool, str]:
     if len(password) < 8:
         return False, "Password must be at least 8 characters long."
@@ -668,10 +681,108 @@ def logout_view(request):
 
 def reset_password_view(request):
     user_id = _get_logged_in_user_id(request)
-    if not user_id:
-        messages.error(request, "Please log in first.")
-        return redirect("login")
-    return render(request, "reset-password.html", {"is_sso": True})
+    is_logged_in = bool(user_id)
+    form_data = {
+        "email": "",
+    }
+    current_user = None
+    reset_success = False
+
+    if is_logged_in:
+        try:
+            current_user = _get_user_details(user_id)
+        except requests.RequestException:
+            messages.error(request, "Could not load your account details right now.")
+            return redirect("manage_account")
+
+    if request.method == "POST":
+        email = (request.POST.get("email") or "").strip()
+        password = request.POST.get("password") or ""
+        confirm_password = request.POST.get("confirmpassword") or ""
+        form_data["email"] = email
+
+        if not is_logged_in:
+            if not email:
+                messages.error(request, "Email is required.")
+                return render(
+                    request,
+                    "reset-password.html",
+                    {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
+                )
+            is_valid_email, email_message = _check_valid_email(email)
+            if not is_valid_email:
+                messages.error(request, email_message)
+                return render(
+                    request,
+                    "reset-password.html",
+                    {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
+                )
+
+        if not password:
+            messages.error(request, "New password is required.")
+            return render(
+                request,
+                "reset-password.html",
+                {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
+            )
+
+        if password != confirm_password:
+            messages.error(request, "The confirmation password does not match.")
+            return render(
+                request,
+                "reset-password.html",
+                {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
+            )
+
+        is_strong, message = is_strong_password(password)
+        if not is_strong:
+            messages.error(request, message)
+            return render(
+                request,
+                "reset-password.html",
+                {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
+            )
+
+        payload = {"password": password}
+        if is_logged_in:
+            payload["user_id"] = user_id
+        else:
+            payload["username_email"] = email
+
+        try:
+            _update_user_password(payload)
+        except requests.HTTPError as exc:
+            try:
+                detail = exc.response.json().get("detail", "Could not reset your password.")
+            except ValueError:
+                detail = "Could not reset your password."
+            messages.error(request, detail)
+            return render(
+                request,
+                "reset-password.html",
+                {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
+            )
+        except requests.RequestException:
+            messages.error(request, "Password reset service is unavailable.")
+            return render(
+                request,
+                "reset-password.html",
+                {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
+            )
+
+        request.session.flush()
+        reset_success = True
+        return render(
+            request,
+            "reset-password.html",
+            {"is_sso": False, "form_data": {"email": ""}, "current_user": None, "reset_success": reset_success},
+        )
+
+    return render(
+        request,
+        "reset-password.html",
+        {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
+    )
 
 
 def login(request):

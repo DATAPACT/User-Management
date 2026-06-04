@@ -19,11 +19,28 @@ from django.contrib import admin
 from django.urls import path
 from . import views
 
+"""
+1. Define the route in urls.py
+path("login/", views.login, name="login")
+2. Use its name in the template
+{% url 'login' %}
+Examples from your project:
+- name="login" -> {% url 'login' %} -> /login/
+- name="register" -> {% url 'register' %} -> /register/
+- name="manage_account" -> {% url 'manage_account' %} -> /manage-account/
+
+Why this is better than hardcoding:
+- if the path changes later, templates still work as long as the route name stays the same
+Example:
+path("sign-in/", views.login, name="login")
+Then {% url 'login' %} automatically becomes /sign-in/ without changing the template.
+"""
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", views.index_view, name="index"),
+
     path("login/", views.login, name="login"),
-    # path("sign-up/", views.sign_up_view, name="sign_up"),
     path("register/", views.register, name="register"),
     path("manage-account/", views.manage_account, name="manage_account"),
     path("reset-password/", views.reset_password_view, name="reset_password"),

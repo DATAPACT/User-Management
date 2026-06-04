@@ -644,7 +644,6 @@ async def update_user_password(master_password_input: str, user_update: UserUpda
         "password": "NewStrongPass1!"
     }
 
-
     """
 
     await verify_master(master_password_input)

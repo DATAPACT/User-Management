@@ -114,6 +114,25 @@ def _check_username_exists(username: str):
     return None
 
 
+def _get_logged_in_user_id(request) -> Optional[str]:
+    user_id = request.session.get("user_id")
+    return str(user_id) if user_id else None
+
+
+def _get_user_details(user_id: str) -> Dict[str, Any]:
+    endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/details/"
+    response = requests.get(endpoint_url, params={"user_id": user_id}, timeout=10)
+    response.raise_for_status()
+    return response.json()
+
+
+def _update_user_details(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/update-details"
+    response = requests.put(endpoint_url, params={"user_id": user_id}, json=payload, timeout=15)
+    response.raise_for_status()
+    return response.json()
+
+
 def is_strong_password(password: str) -> tuple[bool, str]:
     if len(password) < 8:
         return False, "Password must be at least 8 characters long."
@@ -255,6 +274,26 @@ def _check_valid_phone(phone: str, phone_region: str) -> tuple[bool, str, Option
     return True, "Phone number is valid.", normalized_phone
 
 
+def _infer_phone_region_name(phone: str) -> str:
+    phone = (phone or "").strip()
+    if not phone:
+        return ""
+
+    try:
+        parsed = phonenumbers.parse(phone, None)
+    except phonenumbers.NumberParseException:
+        return ""
+
+    region_code = phonenumbers.region_code_for_number(parsed)
+    if not region_code:
+        return ""
+
+    for entry in COMMON_PHONE_REGIONS:
+        if entry["region_code"] == region_code:
+            return entry["name"]
+    return ""
+
+
 def register(request):
     if request.method == "POST":
         print("Registering user...")
@@ -362,8 +401,153 @@ def register(request):
 
 
 
-def manage_account_view(request):
-  return render(request, "manage_account.html")
+MANAGE_ACCOUNT_FORM_FIELDS = [
+    "first_name",
+    "last_name",
+    "username",
+    "username_email",
+    "type",
+    "organization",
+    "incorporation",
+    "address",
+    "vat_no",
+    "position_title",
+    "phone_region",
+    "phone",
+]
+
+
+def _manage_account_form_data(post_data):
+    return {
+        field: (post_data.get(field) or "").strip()
+        for field in MANAGE_ACCOUNT_FORM_FIELDS
+    }
+
+
+def _to_form_string(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        return ", ".join(str(item).strip() for item in value if str(item).strip())
+    return str(value).strip()
+
+
+def _build_manage_account_context(user_details: Dict[str, Any], form_data=None):
+    active_form_data = form_data or {
+        "first_name": _to_form_string(user_details.get("first_name")),
+        "last_name": _to_form_string(user_details.get("last_name")),
+        "username": _to_form_string(user_details.get("username")),
+        "username_email": _to_form_string(user_details.get("username_email")),
+        "type": _to_form_string(user_details.get("type")),
+        "organization": _to_form_string(user_details.get("organization")),
+        "incorporation": _to_form_string(user_details.get("incorporation")),
+        "address": _to_form_string(user_details.get("address")),
+        "vat_no": _to_form_string(user_details.get("vat_no")),
+        "position_title": _to_form_string(user_details.get("position_title")),
+        "phone_region": _infer_phone_region_name(_to_form_string(user_details.get("phone"))),
+        "phone": _to_form_string(user_details.get("phone")),
+    }
+    welcome_name = (
+        _to_form_string(user_details.get("name"))
+        or _build_full_name(user_details.get("first_name"), user_details.get("last_name"))
+        or _to_form_string(user_details.get("username"))
+        or "User"
+    )
+    return {
+        "welcome_name": welcome_name,
+        "form_data": active_form_data,
+        "is_sso": True,
+        "phone_region_choices": _load_phone_region_choices(),
+    }
+
+
+def manage_account(request):
+    user_id = _get_logged_in_user_id(request)
+    if not user_id:
+        messages.error(request, "Please log in first.")
+        return redirect("login")
+
+    try:
+        user_details = _get_user_details(user_id)
+    except requests.RequestException:
+        messages.error(request, "Could not load your account details right now.")
+        return redirect("login")
+
+    if request.method == "POST":
+        form_data = _manage_account_form_data(request.POST)
+
+        if not form_data["first_name"]:
+            messages.error(request, "First name cannot be empty.")
+            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+
+        if not form_data["last_name"]:
+            messages.error(request, "Last name cannot be empty.")
+            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+
+        if not form_data["username"]:
+            messages.error(request, "Username cannot be empty.")
+            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+
+        if not form_data["username_email"]:
+            messages.error(request, "Email cannot be empty.")
+            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+
+        is_valid_email, email_message = _check_valid_email(form_data["username_email"])
+        if not is_valid_email:
+            messages.error(request, email_message)
+            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+
+        if form_data["username"] != _to_form_string(user_details.get("username")):
+            username_exists = _check_username_exists(form_data["username"])
+            if username_exists is True:
+                messages.error(request, "Username already registered, please use another username.")
+                return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+
+        if form_data["username_email"] != _to_form_string(user_details.get("username_email")):
+            email_exists = _check_user_email_exists(form_data["username_email"])
+            if email_exists is True:
+                messages.error(request, "Email already registered, please use another email.")
+                return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+
+        phone_is_valid, phone_message, normalized_phone = _check_valid_phone(
+            form_data["phone"],
+            form_data["phone_region"],
+        )
+        if not phone_is_valid:
+            messages.error(request, phone_message)
+            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+
+        payload = {
+            "first_name": form_data["first_name"],
+            "last_name": form_data["last_name"],
+            "username": form_data["username"],
+            "username_email": form_data["username_email"],
+            "type": form_data["type"] or _to_form_string(user_details.get("type")),
+            "organization": form_data["organization"],
+            "incorporation": form_data["incorporation"],
+            "address": form_data["address"],
+            "vat_no": form_data["vat_no"],
+            "position_title": form_data["position_title"],
+            "phone": normalized_phone or "",
+        }
+
+        try:
+            updated_user = _update_user_details(user_id, payload)
+        except requests.HTTPError as exc:
+            try:
+                detail = exc.response.json().get("detail", "Could not update your profile.")
+            except ValueError:
+                detail = "Could not update your profile."
+            messages.error(request, detail)
+            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+        except requests.RequestException:
+            messages.error(request, "Profile update service is unavailable.")
+            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+
+        messages.success(request, "Profile updated successfully.")
+        return render(request, "manage-account.html", _build_manage_account_context(updated_user))
+
+    return render(request, "manage-account.html", _build_manage_account_context(user_details))
 
 
 def _check_valid_email(email):
@@ -477,6 +661,19 @@ def check_phone_number(request):
     return JsonResponse({"valid": True, "detail": detail, "normalized_phone": normalized_phone})
 
 
+def logout_view(request):
+    request.session.flush()
+    return redirect("login")
+
+
+def reset_password_view(request):
+    user_id = _get_logged_in_user_id(request)
+    if not user_id:
+        messages.error(request, "Please log in first.")
+        return redirect("login")
+    return render(request, "reset-password.html", {"is_sso": True})
+
+
 def login(request):
     if request.method == "POST":
         identifier = (
@@ -549,6 +746,9 @@ def login(request):
             request.session["user_id"] = user.get("id")
             request.session["user_type"] = user.get("type")
             request.session["is_sso"] = False
+
+
+            print("go to  manage-account.html page...")
             return redirect("manage_account")
         else:
             # Extract API error message if any, or default message

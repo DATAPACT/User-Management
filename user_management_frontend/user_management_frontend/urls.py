@@ -29,4 +29,5 @@ urlpatterns = [
     path("check-user-email/", views.check_user_email, name="check_user_email"),
     path("check-username/", views.check_username, name="check_username"),
     path("check-strong-password/", views.check_strong_password, name="check_strong_password"),
+    path("check-phone-number/", views.check_phone_number, name="check_phone_number"),
 ]

@@ -142,6 +142,7 @@ REGISTRATION_FORM_FIELDS = [
     "address",
     "vat_no",
     "position_title",
+    "phone_region",
     "phone",
 ]
 
@@ -155,6 +156,109 @@ def _registration_form_data(post_data):
 def _build_full_name(first_name: Optional[str], last_name: Optional[str]) -> Optional[str]:
     parts = [part.strip() for part in [first_name or "", last_name or ""] if part and part.strip()]
     return " ".join(parts) or None
+
+
+PHONE_REGION_CACHE = None
+COMMON_PHONE_REGIONS = [
+    {"name": "United States", "region_code": "US", "dial_code": "+1"},
+    {"name": "United Kingdom", "region_code": "GB", "dial_code": "+44"},
+    {"name": "Canada", "region_code": "CA", "dial_code": "+1"},
+    {"name": "Germany", "region_code": "DE", "dial_code": "+49"},
+    {"name": "France", "region_code": "FR", "dial_code": "+33"},
+    {"name": "Spain", "region_code": "ES", "dial_code": "+34"},
+    {"name": "Italy", "region_code": "IT", "dial_code": "+39"},
+    {"name": "Netherlands", "region_code": "NL", "dial_code": "+31"},
+    {"name": "Sweden", "region_code": "SE", "dial_code": "+46"},
+    {"name": "Switzerland", "region_code": "CH", "dial_code": "+41"},
+    {"name": "Norway", "region_code": "NO", "dial_code": "+47"},
+    {"name": "Denmark", "region_code": "DK", "dial_code": "+45"},
+    {"name": "Ireland", "region_code": "IE", "dial_code": "+353"},
+    {"name": "Portugal", "region_code": "PT", "dial_code": "+351"},
+    {"name": "Poland", "region_code": "PL", "dial_code": "+48"},
+    {"name": "Mexico", "region_code": "MX", "dial_code": "+52"},
+    {"name": "Brazil", "region_code": "BR", "dial_code": "+55"},
+    {"name": "Argentina", "region_code": "AR", "dial_code": "+54"},
+    {"name": "Australia", "region_code": "AU", "dial_code": "+61"},
+    {"name": "New Zealand", "region_code": "NZ", "dial_code": "+64"},
+    {"name": "Japan", "region_code": "JP", "dial_code": "+81"},
+    {"name": "China", "region_code": "CN", "dial_code": "+86"},
+    {"name": "Hong Kong", "region_code": "HK", "dial_code": "+852"},
+    {"name": "Singapore", "region_code": "SG", "dial_code": "+65"},
+    {"name": "India", "region_code": "IN", "dial_code": "+91"},
+    {"name": "Pakistan", "region_code": "PK", "dial_code": "+92"},
+    {"name": "Iran", "region_code": "IR", "dial_code": "+98"},
+    {"name": "Saudi Arabia", "region_code": "SA", "dial_code": "+966"},
+    {"name": "United Arab Emirates", "region_code": "AE", "dial_code": "+971"},
+    {"name": "South Africa", "region_code": "ZA", "dial_code": "+27"},
+]
+PHONE_REGION_NAME_TO_CODE = {
+    entry["name"].casefold(): entry["region_code"]
+    for entry in COMMON_PHONE_REGIONS
+}
+
+
+def _load_phone_dependencies():
+    try:
+        import phonenumbers
+    except ImportError:
+        return None
+
+    return phonenumbers
+
+
+def _load_phone_region_choices():
+    global PHONE_REGION_CACHE
+    if PHONE_REGION_CACHE is not None:
+        return PHONE_REGION_CACHE
+
+    PHONE_REGION_CACHE = [
+        (entry["name"], f'{entry["name"]} ({entry["dial_code"]})')
+        for entry in COMMON_PHONE_REGIONS
+    ]
+    return PHONE_REGION_CACHE
+
+
+def _registration_page_context(form_data=None):
+    return {
+        "form_data": form_data or {},
+        "phone_region_choices": _load_phone_region_choices(),
+    }
+
+
+def _check_valid_phone(phone: str, phone_region: str) -> tuple[bool, str, Optional[str]]:
+    phone = (phone or "").strip()
+    phone_region = (phone_region or "").strip()
+
+    if not phone:
+        return True, "", None
+
+    if not phone_region:
+        return False, "Please choose a phone region.", None
+
+    phonenumbers = _load_phone_dependencies()
+    if phonenumbers is None:
+        return False, "Phone validation is not available. Install 'phonenumbers'.", None
+
+    region_code = PHONE_REGION_NAME_TO_CODE.get(phone_region.casefold())
+    if not region_code:
+        return False, "Phone region is not recognised.", None
+
+    try:
+        parsed = phonenumbers.parse(phone, region_code)
+    except phonenumbers.NumberParseException:
+        return False, "Phone number format is invalid for the selected region.", None
+
+    if not phonenumbers.is_possible_number(parsed):
+        return False, "Phone number is not possible for the selected region.", None
+
+    if not phonenumbers.is_valid_number(parsed):
+        return False, "Phone number is not valid for the selected region.", None
+
+    normalized_phone = phonenumbers.format_number(
+        parsed,
+        phonenumbers.PhoneNumberFormat.E164,
+    )
+    return True, "Phone number is valid.", normalized_phone
 
 
 def register(request):
@@ -175,6 +279,7 @@ def register(request):
         address = form_data["address"]
         vat_no = form_data["vat_no"]
         position_title = form_data["position_title"]
+        phone_region = form_data["phone_region"]
         phone = form_data["phone"]
 
         data = {
@@ -186,7 +291,6 @@ def register(request):
             "username_email": email,
             "password": password,
             "organization": organization,
-
             "incorporation": incorporation,
             "address": address,
             "vat_no": vat_no,
@@ -198,35 +302,41 @@ def register(request):
 
         if not first_name:
             messages.error(request, "First name cannot be empty.")
-            return render(request, "sign-up.html", {"form_data": form_data})
+            return render(request, "sign-up.html", _registration_page_context(form_data))
 
         if not last_name:
             messages.error(request, "Last name cannot be empty.")
-            return render(request, "sign-up.html", {"form_data": form_data})
+            return render(request, "sign-up.html", _registration_page_context(form_data))
 
         if not username:
             messages.error(request, "Username cannot be empty.")
-            return render(request, "sign-up.html", {"form_data": form_data})
+            return render(request, "sign-up.html", _registration_page_context(form_data))
 
         if password != confirm_password:
             messages.error(request, "The confirmation password does not match.")
-            return render(request, "sign-up.html", {"form_data": form_data})
+            return render(request, "sign-up.html", _registration_page_context(form_data))
 
         email_exists = _check_user_email_exists(email)
         if email_exists is True:
             messages.error(request, "Email already registered, please use another email.")
-            return render(request, "sign-up.html", {"form_data": form_data})
+            return render(request, "sign-up.html", _registration_page_context(form_data))
 
         username_exists = _check_username_exists(username)
         if username_exists is True:
             messages.error(request, "Username already registered, please use another username.")
-            return render(request, "sign-up.html", {"form_data": form_data})
+            return render(request, "sign-up.html", _registration_page_context(form_data))
 
         is_strong, message = is_strong_password(password)
 
         if not is_strong:
             messages.error(request, message)
-            return render(request, "sign-up.html", {"form_data": form_data})
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+
+        phone_is_valid, phone_message, normalized_phone = _check_valid_phone(phone, phone_region)
+        if not phone_is_valid:
+            messages.error(request, phone_message)
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+        data["phone"] = normalized_phone or ""
 
         # user registration is handled by user-management-service. Keycloak is the authentication authority 
         endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/register/"
@@ -247,13 +357,13 @@ def register(request):
                     error_message = "Unexpected response from the registration service."
 
                 messages.error(request, error_message)
-                return render(request, "sign-up.html", {"form_data": form_data})
+                return render(request, "sign-up.html", _registration_page_context(form_data))
 
         except requests.RequestException:
             messages.error(request, "Registration service is unavailable. Please try again later.")
-            return render(request, "sign-up.html", {"form_data": form_data})
+            return render(request, "sign-up.html", _registration_page_context(form_data))
 
-    return render(request, "sign-up.html")
+    return render(request, "sign-up.html", _registration_page_context())
 
 
 
@@ -352,6 +462,23 @@ def check_strong_password(request):
         return JsonResponse({"valid": False, "detail": megs})
 
     return JsonResponse({"valid": True, "detail": megs})
+
+
+def check_phone_number(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    phone = (request.GET.get("phone") or "").strip()
+    phone_region = (request.GET.get("phone_region") or "").strip()
+
+    if not phone:
+        return JsonResponse({"valid": True, "detail": ""})
+
+    is_valid, detail, normalized_phone = _check_valid_phone(phone, phone_region)
+    if not is_valid:
+        return JsonResponse({"valid": False, "detail": detail}, status=400)
+
+    return JsonResponse({"valid": True, "detail": detail, "normalized_phone": normalized_phone})
 
 
 def login(request):

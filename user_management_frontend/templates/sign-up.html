@@ -117,10 +117,27 @@
               <div id="PositionTitleHelp" class="form-text">Enter your position title.</div>
             </div>
 
-            <div class="mb-4">
-              <label for="phone" class="form-label">Phone number</label>
-              <input type="text" class="form-control" name="phone" id="phone" value="{{ form_data.phone|default:'' }}" aria-describedby="phoneHelp">
-              <div id="phoneHelp" class="form-text">Enter your phone number.</div>
+            <div class="mb-2">
+              <label class="form-label">Phone number</label>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-4">
+                <select class="form-select" name="phone_region" id="phone_region" aria-describedby="phoneRegionHelp phoneValidation">
+                  <option value="" {% if not form_data.phone_region %}selected{% endif %}>Select phone region</option>
+                  {% for region_value, region_label in phone_region_choices %}
+                    <option value="{{ region_value }}" {% if form_data.phone_region == region_value %}selected{% endif %}>
+                      {{ region_label }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <div id="phoneRegionHelp" class="form-text">Choose a region if you want to add a phone number.</div>
+              </div>
+
+              <div class="col-md-8 mb-4">
+                <input type="text" class="form-control" name="phone" id="phone" value="{{ form_data.phone|default:'' }}" aria-describedby="phoneHelp phoneValidation">
+                <div id="phoneHelp" class="form-text">Enter your phone number for the selected region.</div>
+                <div id="phoneValidation" class="form-text" aria-live="polite"></div>
+              </div>
             </div>
 
             <div class="mb-4">
@@ -174,6 +191,9 @@
     const passwordStrength = document.getElementById("passwordStrength");
     const confirmPasswordInput = document.getElementById("confirmpassword");
     const confirmPasswordHelp = document.getElementById("confirmPasswordHelp");
+    const phoneRegionInput = document.getElementById("phone_region");
+    const phoneInput = document.getElementById("phone");
+    const phoneValidation = document.getElementById("phoneValidation");
     const checks = [
       {
         input: document.getElementById("email"),
@@ -196,6 +216,7 @@
     ];
     let passwordIsStrong = false;
     let passwordsMatch = false;
+    let phoneIsValid = !phoneInput.value.trim();
 
     function setFieldState(check, state, message) {
       check.output.textContent = message || "";
@@ -297,6 +318,29 @@
       }
     }
 
+    function setPhoneState(state, message) {
+      phoneValidation.textContent = message || "";
+      phoneValidation.classList.remove("text-danger", "text-success", "text-muted");
+      phoneInput.classList.remove("is-invalid", "is-valid");
+      phoneRegionInput.classList.remove("is-invalid", "is-valid");
+
+      if (state === "invalid") {
+        phoneValidation.classList.add("text-danger");
+        phoneInput.classList.add("is-invalid");
+        if (phoneInput.value.trim() && !phoneRegionInput.value.trim()) {
+          phoneRegionInput.classList.add("is-invalid");
+        } else if (phoneRegionInput.value.trim()) {
+          phoneRegionInput.classList.add("is-valid");
+        }
+      } else if (state === "valid") {
+        phoneValidation.classList.add("text-success");
+        phoneInput.classList.add("is-valid");
+        phoneRegionInput.classList.add("is-valid");
+      } else if (state === "checking") {
+        phoneValidation.classList.add("text-muted");
+      }
+    }
+
     async function checkStrongPassword() {
       const value = passwordInput.value;
       passwordIsStrong = false;
@@ -349,6 +393,47 @@
       return true;
     }
 
+    async function checkPhoneNumber() {
+      const phoneValue = phoneInput.value.trim();
+      const phoneRegionValue = phoneRegionInput.value.trim();
+
+      phoneIsValid = true;
+
+      if (!phoneValue) {
+        setPhoneState("idle", "");
+        phoneRegionInput.classList.remove("is-invalid", "is-valid");
+        return true;
+      }
+
+      if (!phoneRegionValue) {
+        phoneIsValid = false;
+        setPhoneState("invalid", "Please choose a phone region.");
+        return false;
+      }
+
+      setPhoneState("checking", "Checking phone number...");
+
+      try {
+        const response = await fetch(
+          `{% url 'check_phone_number' %}?phone_region=${encodeURIComponent(phoneRegionValue)}&phone=${encodeURIComponent(phoneValue)}`
+        );
+        const data = await response.json();
+
+        phoneIsValid = Boolean(data.valid);
+        if (!phoneIsValid) {
+          setPhoneState("invalid", data.detail || data.error || "Phone number is not valid.");
+          return false;
+        }
+
+        setPhoneState("valid", data.detail || "Phone number is valid.");
+        return true;
+      } catch (error) {
+        phoneIsValid = false;
+        setPhoneState("invalid", "Phone validation service is unavailable.");
+        return false;
+      }
+    }
+
     checks.forEach(function (check) {
       check.lastCheckedValue = "";
       check.lastExists = false;
@@ -389,6 +474,28 @@
       checkConfirmPassword();
     });
 
+    phoneInput.addEventListener("blur", function () {
+      checkPhoneNumber();
+    });
+
+    phoneInput.addEventListener("input", function () {
+      phoneIsValid = !phoneInput.value.trim();
+      if (!phoneInput.value.trim()) {
+        setPhoneState("idle", "");
+        phoneRegionInput.classList.remove("is-invalid", "is-valid");
+      } else {
+        setPhoneState("idle", "");
+      }
+    });
+
+    phoneRegionInput.addEventListener("change", function () {
+      if (phoneInput.value.trim()) {
+        checkPhoneNumber();
+      } else {
+        phoneRegionInput.classList.remove("is-invalid", "is-valid");
+      }
+    });
+
     form.addEventListener("submit", async function (event) {
       const invalidFormatCheck = checks.find(function (check) {
         const value = check.input.value.trim();
@@ -407,14 +514,16 @@
 
       const shouldCheckPassword = passwordInput.value.trim().length > 0 && !passwordIsStrong;
       const confirmPasswordValid = checkConfirmPassword();
+      const shouldCheckPhone = phoneInput.value.trim().length > 0 && (!phoneIsValid || !phoneRegionInput.value.trim());
 
-      if (checksToRun.length || shouldCheckPassword || !confirmPasswordValid) {
+      if (checksToRun.length || shouldCheckPassword || !confirmPasswordValid || shouldCheckPhone) {
         event.preventDefault();
         signUpButton.disabled = true;
         const results = await Promise.all(checksToRun.map(checkAvailability));
         const strongPassword = shouldCheckPassword ? await checkStrongPassword() : passwordIsStrong;
+        const validPhone = shouldCheckPhone ? await checkPhoneNumber() : phoneIsValid;
         signUpButton.disabled = false;
-        if (!results.some(Boolean) && strongPassword && confirmPasswordValid) {
+        if (!results.some(Boolean) && strongPassword && confirmPasswordValid && validPhone) {
           form.requestSubmit();
         }
         return;
@@ -436,6 +545,11 @@
       if (!passwordsMatch) {
         event.preventDefault();
         checkConfirmPassword();
+      }
+
+      if (!phoneIsValid) {
+        event.preventDefault();
+        checkPhoneNumber();
       }
     });
   })();

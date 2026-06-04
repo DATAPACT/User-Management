@@ -19,6 +19,7 @@ import requests
 from keycloak_auth.auth import decode_keycloak_token
 from keycloak_auth.user_mapping import resolve_local_session_user_sync
 from pymongo import MongoClient as PyMongoClient
+import phonenumbers
 
 
 logger = logging.getLogger(__name__)
@@ -159,6 +160,7 @@ def _build_full_name(first_name: Optional[str], last_name: Optional[str]) -> Opt
 
 
 PHONE_REGION_CACHE = None
+# add more regions if needed
 COMMON_PHONE_REGIONS = [
     {"name": "United States", "region_code": "US", "dial_code": "+1"},
     {"name": "United Kingdom", "region_code": "GB", "dial_code": "+44"},
@@ -197,13 +199,7 @@ PHONE_REGION_NAME_TO_CODE = {
 }
 
 
-def _load_phone_dependencies():
-    try:
-        import phonenumbers
-    except ImportError:
-        return None
 
-    return phonenumbers
 
 
 def _load_phone_region_choices():
@@ -226,6 +222,8 @@ def _registration_page_context(form_data=None):
 
 
 def _check_valid_phone(phone: str, phone_region: str) -> tuple[bool, str, Optional[str]]:
+
+    # use the exising phonenumbers package
     phone = (phone or "").strip()
     phone_region = (phone_region or "").strip()
 
@@ -234,10 +232,6 @@ def _check_valid_phone(phone: str, phone_region: str) -> tuple[bool, str, Option
 
     if not phone_region:
         return False, "Please choose a phone region.", None
-
-    phonenumbers = _load_phone_dependencies()
-    if phonenumbers is None:
-        return False, "Phone validation is not available. Install 'phonenumbers'.", None
 
     region_code = PHONE_REGION_NAME_TO_CODE.get(phone_region.casefold())
     if not region_code:
@@ -468,12 +462,14 @@ def check_phone_number(request):
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
+    # get phone number and region
     phone = (request.GET.get("phone") or "").strip()
     phone_region = (request.GET.get("phone_region") or "").strip()
 
     if not phone:
         return JsonResponse({"valid": True, "detail": ""})
 
+    # verify the phone number
     is_valid, detail, normalized_phone = _check_valid_phone(phone, phone_region)
     if not is_valid:
         return JsonResponse({"valid": False, "detail": detail}, status=400)

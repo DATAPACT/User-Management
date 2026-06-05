@@ -843,6 +843,20 @@ async def get_user_details(
         ) from exc
 
 
+@app.get("/user/list/", response_model=list[User], summary="List users")
+async def list_users():
+    try:
+        users = []
+        cursor = users_collection.find().sort("username_email", 1)
+        async for user in cursor:
+            users.append(_mask_password(user))
+        return users
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve users: {str(exc)}"
+        ) from exc
+
+
 def _check_valid_email(email):
     email = (email or "").strip()
     if not email:

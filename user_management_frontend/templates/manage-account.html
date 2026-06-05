@@ -169,7 +169,11 @@
 <main class="account-page">
   <div class="container">
     <div class="account-topbar">
+      {% if is_admin_view %}
+      <a href="{% url 'admin_manage' %}">Back to Admin Manage</a>
+      {% else %}
       <a href="{% url 'index' %}">Home</a>
+      {% endif %}
       <div class="dropdown">
         <button class="profile-trigger" type="button" id="accountMenuButton" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" aria-hidden="true">
@@ -201,13 +205,11 @@
     <div class="account-card">
       <div class="account-card-header">
         <h3>Your Information</h3>
+        {% if read_only_mode %}
+        <span class="badge bg-light text-dark">Read Only</span>
+        {% else %}
         <button type="button" id="editProfileButton" class="btn btn-outline-primary">Edit Profile</button>
-        <!-- the JS binds:
-
-        editButton.addEventListener("click", function () {
-        setEditMode(true);
-        });
-        So clicking Edit Profile calls setEditMode(true). -->
+        {% endif %}
       </div>
 
 <!--      <form method="post" id="manageAccountForm" class="account-form">-->
@@ -288,15 +290,18 @@
 
         </div>
 
+        {% if not read_only_mode %}
         <div class="account-actions">
           <button type="button" id="cancelEditButton" class="btn btn-light" style="display: none;">Cancel</button>
           <button type="submit" id="saveProfileButton" class="btn btn-primary" style="display: none;">Save</button>
         </div>
+        {% endif %}
       </form>
     </div>
   </div>
 </main>
 
+{% if not read_only_mode %}
 <script>
   (function () {
     const form = document.getElementById("manageAccountForm");
@@ -338,17 +343,6 @@
     ];
 
     function setEditMode(enabled) {
-
-        <!--
-        - enables all fields with class .editable-field
-        - hides the Edit Profile button
-        - shows the Cancel button
-        - shows the Save button
-
-        - no backend API is called when you click Edit Profile
-        - no Django view is called yet
-        - it is only frontend behavior to switch the form from read-only mode to editable mode
-        -->
       editableFields.forEach(function (field) {
         field.disabled = !enabled;
       });
@@ -622,4 +616,5 @@
     setEditMode(false);
   })();
 </script>
+{% endif %}
 {% endblock %}

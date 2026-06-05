@@ -146,6 +146,39 @@ def _update_user_password(payload: Dict[str, Any]) -> Dict[str, Any]:
     return response.json()
 
 
+def _list_users() -> list[Dict[str, Any]]:
+    endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/list/"
+    response = requests.get(endpoint_url, timeout=15)
+    response.raise_for_status()
+    return response.json()
+
+
+def _delete_user(user_id: str) -> Dict[str, Any]:
+    endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/delete/{user_id}"
+    master_password = os.getenv("MASTER_PASSWORD", "master_password")
+    response = requests.delete(
+        endpoint_url,
+        params={"master_password_input": master_password},
+        timeout=15,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def _claims_has_admin_role(claims: Dict[str, Any]) -> bool:
+    role_values = []
+    realm_access = claims.get("realm_access") or {}
+    role_values.extend(str(role).lower() for role in (realm_access.get("roles") or []))
+    resource_access = claims.get("resource_access") or {}
+    for client_access in resource_access.values():
+        role_values.extend(str(role).lower() for role in ((client_access or {}).get("roles") or []))
+    return "admin" in role_values
+
+
+def _is_admin_session(request) -> bool:
+    return bool(request.session.get("is_admin"))
+
+
 def is_strong_password(password: str) -> tuple[bool, str]:
     if len(password) < 8:
         return False, "Password must be at least 8 characters long."
@@ -471,61 +504,80 @@ def _build_manage_account_context(user_details: Dict[str, Any], form_data=None):
         "form_data": active_form_data,
         "is_sso": True,
         "phone_region_choices": _load_phone_region_choices(),
+        "read_only_mode": False,
+        "is_admin_view": False,
     }
 
 
 def manage_account(request):
-
-    user_id = _get_logged_in_user_id(request)
-
-    if not user_id:
+    session_user_id = _get_logged_in_user_id(request)
+    if not session_user_id:
         messages.error(request, "Please log in first.")
         return redirect("login")
 
+    requested_user_id = (request.GET.get("user_id") or "").strip()
+    is_admin = _is_admin_session(request)
+    target_user_id = requested_user_id or session_user_id
+
+    if requested_user_id and not is_admin:
+        messages.error(request, "You are not allowed to view that user.")
+        return redirect("manage_account")
+
     try:
-        user_details = _get_user_details(user_id)
+        user_details = _get_user_details(target_user_id)
     except requests.RequestException:
         messages.error(request, "Could not load your account details right now.")
-        return redirect("login")
+        return redirect("admin_manage" if is_admin else "login")
+
+    def render_manage_account(current_user_details, current_form_data=None, *, read_only=False):
+        context = _build_manage_account_context(current_user_details, current_form_data)
+        context["read_only_mode"] = read_only
+        context["is_admin_view"] = is_admin
+        return render(request, "manage-account.html", context)
+
+    read_only_mode = bool(is_admin)
 
     if request.method == "POST":
+        if is_admin:
+            messages.error(request, "Admin view is read-only.")
+            return render_manage_account(user_details, read_only=read_only_mode)
+
         form_data = _manage_account_form_data(request.POST)
 
         if not form_data["first_name"]:
             messages.error(request, "First name cannot be empty.")
-            return render(request, "manage-account.html",
-                          _build_manage_account_context(user_details, form_data))
+            return render_manage_account(user_details, form_data)
 
         if not form_data["last_name"]:
             messages.error(request, "Last name cannot be empty.")
-            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+            return render_manage_account(user_details, form_data)
 
         if not form_data["username"]:
             messages.error(request, "Username cannot be empty.")
-            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+            return render_manage_account(user_details, form_data)
 
         if not form_data["username_email"]:
             messages.error(request, "Email cannot be empty.")
-            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+            return render_manage_account(user_details, form_data)
 
         is_valid_email, email_message = _check_valid_email(form_data["username_email"])
         if not is_valid_email:
             messages.error(request, email_message)
-            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+            return render_manage_account(user_details, form_data)
 
         if form_data["username"] != _to_form_string(user_details.get("username")):
             username_exists = _check_username_exists(form_data["username"])
 
             if username_exists is True:
                 messages.error(request, "Username already registered, please use another username.")
-                return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+                return render_manage_account(user_details, form_data)
 
         if form_data["username_email"] != _to_form_string(user_details.get("username_email")):
             email_exists = _check_user_email_exists(form_data["username_email"])
 
             if email_exists is True:
                 messages.error(request, "Email already registered, please use another email.")
-                return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+                return render_manage_account(user_details, form_data)
 
         phone_is_valid, phone_message, normalized_phone = _check_valid_phone(
             form_data["phone"],
@@ -533,7 +585,7 @@ def manage_account(request):
         )
         if not phone_is_valid:
             messages.error(request, phone_message)
-            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+            return render_manage_account(user_details, form_data)
 
         payload = {
             "first_name": form_data["first_name"],
@@ -550,22 +602,94 @@ def manage_account(request):
         }
 
         try:
-            updated_user = _update_user_details(user_id, payload)
+            updated_user = _update_user_details(session_user_id, payload)
         except requests.HTTPError as exc:
             try:
                 detail = exc.response.json().get("detail", "Could not update your profile.")
             except ValueError:
                 detail = "Could not update your profile."
             messages.error(request, detail)
-            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+            return render_manage_account(user_details, form_data)
         except requests.RequestException:
             messages.error(request, "Profile update service is unavailable.")
-            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+            return render_manage_account(user_details, form_data)
 
         messages.success(request, "Profile updated successfully.")
-        return render(request, "manage-account.html", _build_manage_account_context(updated_user))
+        return render_manage_account(updated_user)
 
-    return render(request, "manage-account.html", _build_manage_account_context(user_details))
+    return render_manage_account(user_details, read_only=read_only_mode)
+
+
+def admin_manage(request):
+    if not _is_admin_session(request):
+        messages.error(request, "Admin access is required.")
+        return redirect("login")
+
+    session_user_id = _get_logged_in_user_id(request)
+    admin_user_name = "Admin"
+    if session_user_id:
+        try:
+            admin_user = _get_user_details(session_user_id)
+            admin_user_name = (
+                _to_form_string(admin_user.get("name"))
+                or _build_full_name(admin_user.get("first_name"), admin_user.get("last_name"))
+                or _to_form_string(admin_user.get("username"))
+                or "Admin"
+            )
+        except requests.RequestException:
+            admin_user_name = "Admin"
+
+    try:
+        users = _list_users()
+    except requests.RequestException:
+        messages.error(request, "Could not load the user list right now.")
+        return render(
+            request,
+            "admin-manage.html",
+            {"is_sso": True, "is_admin_view": True, "users": [], "admin_user_name": admin_user_name},
+        )
+
+    normalized_users = []
+    for user in users:
+        user_id = str(user.get("_id") or user.get("id") or "")
+        normalized_user = dict(user)
+        normalized_user["user_id"] = user_id
+        normalized_user["is_current_admin"] = user_id == str(session_user_id)
+        normalized_users.append(normalized_user)
+
+    return render(
+        request,
+        "admin-manage.html",
+        {"is_sso": True, "is_admin_view": True, "users": normalized_users, "admin_user_name": admin_user_name},
+    )
+
+
+def admin_delete_user(request, user_id: str):
+    if request.method != "POST":
+        return redirect("admin_manage")
+
+    if not _is_admin_session(request):
+        messages.error(request, "Admin access is required.")
+        return redirect("login")
+
+    session_user_id = _get_logged_in_user_id(request)
+    if str(user_id) == str(session_user_id):
+        messages.error(request, "You cannot delete the currently logged-in admin user.")
+        return redirect("admin_manage")
+
+    try:
+        _delete_user(user_id)
+        messages.success(request, "User deleted successfully.")
+    except requests.HTTPError as exc:
+        try:
+            detail = exc.response.json().get("detail", "Could not delete the user.")
+        except ValueError:
+            detail = "Could not delete the user."
+        messages.error(request, detail)
+    except requests.RequestException:
+        messages.error(request, "Delete service is unavailable.")
+
+    return redirect("admin_manage")
 
 
 def _check_valid_email(email):
@@ -681,12 +805,12 @@ def check_phone_number(request):
     return JsonResponse({"valid": True, "detail": detail, "normalized_phone": normalized_phone})
 
 
-def logout(request):
+def logout_view(request):
     request.session.flush()
     return redirect("login")
 
 
-def reset_password(request):
+def reset_password_view(request):
     user_id = _get_logged_in_user_id(request)
     is_logged_in = bool(user_id)
     form_data = {
@@ -845,6 +969,8 @@ def login(request):
             try:
                 claims = _decode_keycloak_claims(access_token)
                 user = _resolve_local_session_user_from_claims(claims)
+                is_admin = _claims_has_admin_role(claims)
+                print("\n\nis_admin: ",is_admin)
                 print("print out current user info: ", user)
             except Exception as exc:
                 logger.error("Keycloak login succeeded but local user resolution failed: %s", exc)
@@ -862,8 +988,9 @@ def login(request):
             request.session["user_id"] = user.get("id")
             request.session["user_type"] = user.get("type")
             request.session["is_sso"] = False
+            request.session["is_admin"] = is_admin
 
-            return redirect("manage_account")
+            return redirect("admin_manage" if is_admin else "manage_account")
         else:
             # Extract API error message if any, or default message
             try:

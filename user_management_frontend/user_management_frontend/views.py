@@ -475,7 +475,9 @@ def _build_manage_account_context(user_details: Dict[str, Any], form_data=None):
 
 
 def manage_account(request):
+
     user_id = _get_logged_in_user_id(request)
+
     if not user_id:
         messages.error(request, "Please log in first.")
         return redirect("login")
@@ -491,7 +493,8 @@ def manage_account(request):
 
         if not form_data["first_name"]:
             messages.error(request, "First name cannot be empty.")
-            return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
+            return render(request, "manage-account.html",
+                          _build_manage_account_context(user_details, form_data))
 
         if not form_data["last_name"]:
             messages.error(request, "Last name cannot be empty.")
@@ -512,12 +515,14 @@ def manage_account(request):
 
         if form_data["username"] != _to_form_string(user_details.get("username")):
             username_exists = _check_username_exists(form_data["username"])
+
             if username_exists is True:
                 messages.error(request, "Username already registered, please use another username.")
                 return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
 
         if form_data["username_email"] != _to_form_string(user_details.get("username_email")):
             email_exists = _check_user_email_exists(form_data["username_email"])
+
             if email_exists is True:
                 messages.error(request, "Email already registered, please use another email.")
                 return render(request, "manage-account.html", _build_manage_account_context(user_details, form_data))
@@ -564,7 +569,9 @@ def manage_account(request):
 
 
 def _check_valid_email(email):
+
     email = (email or "").strip()
+
     if not email:
         return False, "Email is required."
 
@@ -674,12 +681,12 @@ def check_phone_number(request):
     return JsonResponse({"valid": True, "detail": detail, "normalized_phone": normalized_phone})
 
 
-def logout_view(request):
+def logout(request):
     request.session.flush()
     return redirect("login")
 
 
-def reset_password_view(request):
+def reset_password(request):
     user_id = _get_logged_in_user_id(request)
     is_logged_in = bool(user_id)
     form_data = {
@@ -795,7 +802,7 @@ def login(request):
         password = request.POST.get("password")
 
         print("\n\nidentifier (username or email: )", identifier)
-        print("\n\npassword: ", password)
+        print("password: ", password)
 
         if not identifier or not password:
             messages.error(request, "Please enter both username/email and password.")
@@ -820,9 +827,7 @@ def login(request):
             if settings.KEYCLOAK_CLIENT_SECRET:
                 data["client_secret"] = settings.KEYCLOAK_CLIENT_SECRET
 
-            # login is delegated to Keycloak. Negotiation-Tool stores the
-            # Keycloak access token directly instead of asking negotiation-api
-            # to mint an internal JWT.
+            # login is delegated to Keycloak.
             response = requests.post(token_url, data=data, timeout=10)
             print(f"Response status code: {response.status_code}")
             print(f"Response content: {response.content}")
@@ -840,7 +845,7 @@ def login(request):
             try:
                 claims = _decode_keycloak_claims(access_token)
                 user = _resolve_local_session_user_from_claims(claims)
-                print(user)
+                print("print out current user info: ", user)
             except Exception as exc:
                 logger.error("Keycloak login succeeded but local user resolution failed: %s", exc)
                 messages.error(request, "Login succeeded, but the user is not authorized.")
@@ -858,8 +863,6 @@ def login(request):
             request.session["user_type"] = user.get("type")
             request.session["is_sso"] = False
 
-
-            print("go to  manage-account.html page...")
             return redirect("manage_account")
         else:
             # Extract API error message if any, or default message

@@ -202,9 +202,17 @@
       <div class="account-card-header">
         <h3>Your Information</h3>
         <button type="button" id="editProfileButton" class="btn btn-outline-primary">Edit Profile</button>
+        <!-- the JS binds:
+
+        editButton.addEventListener("click", function () {
+        setEditMode(true);
+        });
+        So clicking Edit Profile calls setEditMode(true). -->
       </div>
 
-      <form method="post" id="manageAccountForm" class="account-form">
+<!--      <form method="post" id="manageAccountForm" class="account-form">-->
+      <form method="post" action="{% url 'manage_account' %}" id="manageAccountForm" class="account-form">
+
         {% csrf_token %}
         <div class="row g-4">
           <div class="col-md-6">
@@ -330,6 +338,17 @@
     ];
 
     function setEditMode(enabled) {
+
+        <!--
+        - enables all fields with class .editable-field
+        - hides the Edit Profile button
+        - shows the Cancel button
+        - shows the Save button
+
+        - no backend API is called when you click Edit Profile
+        - no Django view is called yet
+        - it is only frontend behavior to switch the form from read-only mode to editable mode
+        -->
       editableFields.forEach(function (field) {
         field.disabled = !enabled;
       });
@@ -549,6 +568,7 @@
     });
 
     form.addEventListener("submit", async function (event) {
+
       const invalidFormatCheck = checks.find(function (check) {
         const value = check.input.value.trim();
         const initialValue = initialValues.get(check.input.name) || "";

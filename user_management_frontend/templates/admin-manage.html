@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}Admin Manage{% endblock %}
+{% block inpagecss %}
+  .admin-page {
+    padding: 120px 0 80px;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top right, rgba(65, 84, 241, 0.10), transparent 26%),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+
+  .admin-topbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .admin-topbar a {
+    color: #4154f1;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .admin-card {
+    background: #fff;
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 26px 60px rgba(15, 23, 42, 0.08);
+    padding: 32px;
+  }
+
+  .admin-table th {
+    color: #344054;
+    font-weight: 700;
+  }
+
+  .admin-table td {
+    vertical-align: middle;
+  }
+
+  .admin-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .admin-actions .btn {
+    min-width: 84px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+{% endblock %}
+{% block content %}
+<main class="admin-page">
+  <div class="container">
+    <div class="admin-topbar">
+      <a href="{% url 'index' %}">Home</a>
+      <a href="{% url 'logout' %}">Logout</a>
+    </div>
+
+    <div class="welcome-copy mb-4">
+      <h2>Welcome Administrator {{ admin_user_name }}.</h2>
+      <p>View the current user list and manage user access.</p>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <div class="admin-card">
+      <div class="table-responsive">
+        <table class="table admin-table align-middle">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Username</th>
+              <th>Email</th>
+              <th>User Type</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+              <tr>
+                <td>{{ user.name|default:"-" }}</td>
+                <td>{{ user.username|default:"-" }}</td>
+                <td>{{ user.username_email|default:"-" }}</td>
+                <td>{{ user.type|default:"-" }}</td>
+                <td>
+                  <div class="admin-actions">
+                    <a class="btn btn-outline-primary" href="{% url 'manage_account' %}?user_id={{ user.user_id }}">View</a>
+                    {% if not user.is_current_admin %}
+                    <form method="post" action="{% url 'admin_delete_user' user.user_id %}" onsubmit="return confirm('Delete this user?');">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" class="text-center text-muted py-4">No users found.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

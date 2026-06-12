@@ -644,7 +644,6 @@ async def update_user_password(master_password_input: str, user_update: UserUpda
         "password": "NewStrongPass1!"
     }
 
-
     """
 
     await verify_master(master_password_input)
@@ -844,11 +843,63 @@ async def get_user_details(
         ) from exc
 
 
+@app.get("/user/list/", response_model=list[User], summary="List users")
+async def list_users():
+    try:
+        users = []
+        cursor = users_collection.find().sort("username_email", 1)
+        async for user in cursor:
+            users.append(_mask_password(user))
+        return users
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve users: {str(exc)}"
+        ) from exc
+
+
+def _check_valid_email(email):
+    email = (email or "").strip()
+    if not email:
+        return False, "Email is required."
+
+    if email.count("@") != 1:
+        return False, "Email must contain exactly one '@' symbol."
+
+    local_part, domain_part = email.split("@", 1)
+
+    if not local_part:
+        return False, "Email must include text before '@'."
+
+    if not domain_part:
+        return False, "Email must include a domain after '@'."
+
+    if "." not in domain_part:
+        return False, "Email domain must include a '.' and a valid suffix."
+
+    domain_name, _, tld = domain_part.rpartition(".")
+    if not domain_name:
+        return False, "Email domain name is missing before the final '.'."
+
+    if len(tld) < 2:
+        return False, "Email domain suffix must contain at least 2 letters."
+
+    EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.I)
+    valid = EMAIL_PATTERN.fullmatch(email) is not None
+    if not valid:
+        return False, "Email contains invalid characters or format."
+
+    return True, "Email is valid."
+
 @app.get("/user/check_user_email/")
 async def check_user_email(
     user_email: EmailStr = Query(..., description="Email address to check"),
 ):
+    # check if it is a valid email
+    is_valid, megs = _check_valid_email(user_email)
+    if not is_valid:
+        return {"user_email": str(user_email), "flag": False, "detail": {megs}}
 
+    # check if it is an existing user
     user = await users_collection.find_one(
         {"username_email": str(user_email)},
         {"_id": 1},

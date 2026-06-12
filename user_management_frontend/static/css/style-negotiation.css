@@ -1,0 +1,995 @@
+    * {
+    margin: 0;
+    padding: 0;
+    }
+
+    html {
+    height: 100%;
+    }
+
+    p {
+    color: grey;
+    }
+
+    #heading {
+    text-transform: uppercase;
+    color: #673AB7;
+    font-weight: normal;
+    }
+
+    #msform {
+    text-align: center;
+    position: relative;
+    margin-top: 20px;
+    }
+
+
+
+    #msform fieldset {
+    background: white;
+    border: 0 none;
+    border-radius: 0.5rem;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    padding-bottom: 20px;
+
+    /*stacking fieldsets above each other*/
+    position: relative;
+    }
+
+    .form-card {
+    text-align: left;
+    }
+
+    /*Hide all except first fieldset*/
+    #msform fieldset:not(:first-of-type) {
+    display: none;
+    }
+
+    #msform input, #msform textarea {
+    padding: 8px 15px 8px 15px;
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 0px;
+    margin-top: 2px;
+    box-sizing: border-box;
+    font-family: montserrat;
+    color: #2C3E50;
+    background-color: #ECEFF1;
+    font-size: 16px;
+    letter-spacing: 1px;
+    }
+
+    #msform input:focus, #msform textarea:focus {
+    -moz-box-shadow: none !important;
+    -webkit-box-shadow: none !important;
+    box-shadow: none !important;
+    border: 1px solid #673AB7;
+    outline-width: 0;
+    }
+
+    /*Next Buttons*/
+    #msform .action-button {
+    width: 100px;
+    background: #673AB7;
+    font-weight: bold;
+    color: white;
+    border: 0 none;
+    border-radius: 0px;
+    cursor: pointer;
+    padding: 10px 5px;
+    margin: 10px 0px 10px 5px;
+    float: right;
+    }
+    #msform input[type="button"],
+    #msform input[type="submit"],
+    #msform input[type="reset"] {
+        width: auto; /* Ensure buttons take the width of their content */
+        display: inline-block; /* Aligns buttons inline with other elements */
+        cursor: pointer; /* Changes cursor to pointer on hover */
+        padding: 8px 15px; /* Matches padding with other inputs */
+    }
+    .createRequestBtn {
+    width: 150px;
+    background: #673AB7;
+    font-weight: bold;
+    color: white;
+    border: 0 none;
+    border-radius: 0px;
+    cursor: pointer;
+    padding: 10px 5px;
+    margin: 10px 0px 10px 5px;
+    }
+
+    .createNewRequestBtn {
+        width: 150px;
+        background: #673AB7;
+        font-weight: bold;
+        color: white;
+        border: 0 none;
+        border-radius: 0px;
+        cursor: pointer;
+        padding: 10px 5px;
+        margin: 10px 0px 10px 5px;
+        }
+
+    .styled-button {
+    width: 150px;
+    background: #673AB7;
+    font-weight: bold;
+    color: white;
+    border: 0 none;
+    border-radius: 0px;
+    cursor: pointer;
+    padding: 10px 5px;
+    margin: 10px 0px 10px 5px;
+    float: right;
+    }
+
+    .styled-button-view {
+    background: #616161; /* grey*/
+    width: 100px;
+    }
+
+    .styled-button-offer {
+    background: #2196F3; /* Blue */
+    width: 100px;
+    }
+
+    .styled-button-agree {
+    background: #FFC107; /* Yellow */
+    width: 100px;
+    }
+    .styled-button-request {
+    background: #2196F3; /* Yellow */
+    width: 100px;
+    }
+    .styled-button-accept {
+    background: #FFC107; /* Yellow */
+    width: 100px;
+    }
+
+    .styled-button-terminate {
+    background: #F44336; /* Red */
+    width: 100px;
+    }
+
+    .styled-button-finalize {
+    background: #4CAF50; /* Green */
+    width: 110px;
+    }
+
+    .styled-button-verify {
+    background: #4CAF50; /* Green */
+    width: 100px;
+    }
+
+
+    #msform .action-button:hover, #msform .action-button:focus {
+    background-color: #311B92;
+    }
+
+    /*Previous Buttons*/
+    #msform .action-button-previous {
+    width: 100px;
+    background: #616161;
+    font-weight: bold;
+    color: white;
+    border: 0 none;
+    border-radius: 0px;
+    cursor: pointer;
+    padding: 10px 5px;
+    margin: 10px 5px 10px 0px;
+    float: right;
+    }
+    #msform .action-button-submit {
+    width: 100px;
+    background: #616161;
+    font-weight: bold;
+    color: white;
+    border: 0 none;
+    border-radius: 0px;
+    cursor: pointer;
+    padding: 10px 5px;
+    margin: 10px 5px 10px 0px;
+    float: right;
+    }
+
+    #msform .action-button-previous:hover, #msform .action-button-previous:focus {
+    background-color: #000000;
+    }
+
+    /*The background card*/
+    .card {
+    z-index: 0;
+    border: none;
+    position: relative;
+    }
+
+    /*FieldSet headings*/
+    .fs-title {
+    font-size: 25px;
+    color: #673AB7;
+    margin-bottom: 15px;
+    font-weight: normal;
+    text-align: left;
+    }
+
+    .purple-text {
+    color: #673AB7;
+    font-weight: normal;
+    }
+
+    /*Step Count*/
+    .steps {
+    font-size: 25px;
+    color: gray;
+    margin-bottom: 10px;
+    font-weight: normal;
+    text-align: right;
+    }
+
+    /*Field names*/
+    .fieldlabels {
+    color: gray;
+    text-align: left;
+    }
+
+    /*Icon progressbar*/
+    #progressbar {
+    margin-bottom: 30px;
+    overflow: hidden;
+    color: lightgrey;
+    display: flex;
+    justify-content: center;
+    }
+
+    #progressbar .active {
+    color: #673AB7;
+    }
+
+    #progressbar li {
+    list-style-type: none;
+    font-size: 15px;
+    width: 20%; 
+    float: left;
+    position: relative;
+    font-weight: 400;
+    }
+
+    /*Icons in the ProgressBar*/
+    #progressbar #account:before {
+    font-family: FontAwesome;
+    content: "\f13e";
+    }
+
+    #progressbar #personal:before {
+    font-family: FontAwesome;
+    content: "\f007";
+    }
+
+    #progressbar #resource:before {
+    font-family: FontAwesome;
+    content: "\f2bc";
+    }
+    #progressbar #dpw:before {
+    font-family: FontAwesome;
+    content: "\f0ec";
+    }
+    #progressbar #odrl:before {
+    font-family: FontAwesome;
+    content: "\f24e";
+    }
+    #progressbar #nl:before {
+    font-family: FontAwesome;
+    content: "\f1ab";
+    }
+    #progressbar #np:before {
+    font-family: FontAwesome;
+    content: "\f2b5";
+    }
+
+    #progressbar #confirm:before {
+    font-family: FontAwesome;
+    content: "\f00c";
+    }
+
+    /*Icon ProgressBar before any progress*/
+    #progressbar li:before {
+    width: 50px;
+    height: 50px;
+    line-height: 45px;
+    display: block;
+    font-size: 20px;
+    color: #ffffff;
+    background: lightgray;
+    border-radius: 50%;
+    margin: 0 auto 10px auto;
+    padding: 2px;
+    }
+
+    /*ProgressBar connectors*/
+    #progressbar li:after {
+    content: '';
+    width: 100%;
+    height: 2px;
+    background: lightgray;
+    position: absolute;
+    left: 0;
+    top: 25px;
+    z-index: -1;
+    }
+
+    /*Color number of the step and the connector before it*/
+    #progressbar li.active:before, #progressbar li.active:after {
+    background: #673AB7;
+    }
+
+    /*Animated Progress Bar*/
+    .progress {
+    height: 20px;
+    }
+
+    .progress-bar {
+    background-color: #673AB7;
+    }
+
+    /*Fit image in bootstrap div*/
+    .fit-image{
+    width: 100%;
+    object-fit: cover;
+    }
+
+    .non-readonly-input{
+    background-color: white; /* Change the background color as an example */
+    }
+    td{
+    border:none;
+    }
+    body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    }
+
+    h2 {
+    text-align: center;
+    }
+
+    label {
+    display: block;
+    margin-bottom: 5px;
+    }
+
+    select, input {
+    padding: 8px;
+    margin-bottom: 15px;
+    box-sizing: border-box;
+    }
+
+    #constraintsContainer .constraintRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    }
+
+    #constraintsContainer .removeRow {
+    margin-left: 10px;
+    }
+
+    #addConstraintRow, #saveButton {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 10px 0;
+    }
+
+    #savedObjects {
+    margin-top: 20px;
+    }
+
+    #savedList {
+    list-style: none;
+    padding: 0;
+    }
+
+    #savedList li {
+    background-color: #f4f4f4;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-bottom: 5px;
+    }
+
+    #queryTextbox {
+    width: 50%;
+    height: 150px;
+    float: center;
+    display: none;
+    }
+
+    #constraintsContainer {
+    border: 1px solid #ccc; /* Border for the box */
+    padding: 15px; /* Padding for internal spacing */
+    margin-bottom: 20px; /* Adjust margin as needed */
+    }
+
+    #constraintsContainer .box {
+    background-color: #f8f8f8; /* Background color for the box */
+    }
+
+
+    .right-align {
+    float: right;
+    /* You can add more styles as needed */
+    }
+
+    #savedOdrl {
+    width: 100%;
+    box-sizing: border-box; /* This ensures that padding and border are included in the width */
+    }
+
+    /* The Modal (background) */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0,0,0); /* Fallback color */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content */
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto; /* 15% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+    position: relative;
+}
+
+/* The Close Button */
+.close {
+  position: absolute;
+  top: 10px;
+  right: 25px;
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+#loading-spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background-color: rgba(255, 255, 255, 0.7);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+#data_processing_workflow_object {
+    height: 200px; /* Set the desired height here */
+}
+
+        .sign-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+        }
+
+
+        .sign-modal-content {
+            background-color: #fff;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .sign-close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .sign-close:hover,
+        .sign-close:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        #signatureCanvas {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            width: 120px;
+            margin: 10px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .diff-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .diff-table th, .diff-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+        .diff-table .diff_header {
+            background-color: #f1f1f1;
+        }
+        .diff-table .diff_next {
+            background-color: #e6e6e6;
+        }
+        .diff-table .diff_add {
+            background-color: #d4edda;
+        }
+        .diff-table .diff_chg {
+            background-color: #ffeeba;
+        }
+        .diff-table .diff_sub {
+            background-color: #f8d7da;
+        }
+
+
+        #msform .agreement-operation {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            /*flex-shrink: 0;*/
+        }
+        #msform .agreement-operation .action-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 220px;
+            margin: 0;
+            float: none;
+            background: #6b39c6;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            border-radius: 6px;
+            /*box-shadow: 0 4px 12px rgba(68, 45, 129, 0.25);*/
+            border: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            flex-shrink: 0;
+            width: auto;        /* or inline-size: max-content; */
+            padding: 12px 24px;        /* adjust if needed */
+
+        }
+        #msform .agreement-operation .action-button:hover,
+        #msform .agreement-operation .action-button:focus {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(68, 45, 129, 0.32);
+            background: #5a2ab5;
+            outline: none;
+        }
+        #msform .agreement-operation .action-button:disabled {
+            cursor: not-allowed;
+            background: #d1d5db;
+            color: #6b7280;
+            border: 1px solid #c1c7d0;
+            box-shadow: none;
+            transform: none;
+
+        }
+        .diff-modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4);
+            padding-top: 60px;
+        }
+        .diff-modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 99%;
+        }
+        .diff-close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .diff-close:hover,
+        .diff-close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .compare-last-changes-modal .compare-last-changes-content {
+            /*width: min(1800px, 98%);*/
+            width:  1800px;
+            max-height: 99vh;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 32px 36px;
+            box-shadow: 0 24px 55px rgba(38, 24, 84, 0.24);
+        }
+        .compare-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .compare-header-left {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .compare-header-right {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+        }
+        .compare-tab,
+        .compare-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 18px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .compare-tab {
+            background: #5a2ab5;
+            color: #fff;
+            cursor: default;
+        }
+        .compare-action {
+            background: #f5f5ff;
+            color: #3f2d7b;
+            border-color: #d6cffe;
+        }
+        .compare-action:hover {
+            background: #ece6ff;
+        }
+        .compare-action:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+        .compare-change-count {
+            font-size: 14px;
+            color: #5f5c73;
+            font-weight: 500;
+        }
+        .compare-body {
+            display: grid;
+            grid-template-columns: 2fr minmax(180px, 1fr);
+            gap: 18px;
+            width: 100%;
+        }
+        .compare-diff-pane {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .compare-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .legend-badge {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            background: #f0edff;
+            color: #4b3aa2;
+        }
+        .legend-inserted {
+            background: #e3f8e7;
+            color: #1d7a2f;
+            border: 1px solid rgba(48, 134, 71, 0.25);
+        }
+        .legend-deleted {
+            background: #ffe8e8;
+            color: #c0392b;
+            border: 1px solid rgba(192, 57, 43, 0.25);
+        }
+        .legend-replaced {
+            background: #f4ecff;
+            color: #5a2ab5;
+            border: 1px solid rgba(90, 42, 181, 0.25);
+        }
+        .compare-diff-box {
+            /*border: 1px solid #d9d5ff;*/
+            border-radius: 14px;
+            padding: 22px 24px;
+            /*background: linear-gradient(145deg, #fbf9ff 0%, #ffffff 85%);*/
+            overflow-y: auto;
+            max-height: 70vh;
+            min-height: 360px;
+            line-height: 1.65;
+            font-size: 15px;
+            color: #201b43;
+            letter-spacing: 0.01em;
+            white-space: pre-wrap;
+            box-shadow: inset 0 3px 8px rgba(98, 72, 178, 0.08);
+            text-align: left;
+        }
+        .compare-diff-box:focus {
+            /*outline: 2px solid rgba(93, 68, 204, 0.55);*/
+            outline-offset: 3px;
+        }
+        .compare-diff-box .diff-segment {
+            display: inline;
+            border-radius: 4px;
+            padding: 1px 4px;
+        }
+        .compare-diff-box .diff-segment.del {
+            background: #ffe1e1;
+            color: #a62323;
+            text-decoration: none;
+            border-bottom: 2px solid rgba(166, 35, 35, 0.45);
+            box-shadow: 0 0 0 1px rgba(166, 35, 35, 0.18);
+        }
+        .compare-diff-box .diff-segment.ins {
+            background: #dcf7de;
+            color: #1c6b32;
+            text-decoration: none;
+            border-bottom: 2px solid rgba(28, 107, 50, 0.45);
+            box-shadow: 0 0 0 1px rgba(28, 107, 50, 0.18);
+        }
+        .compare-diff-box br.nl-extra,
+        .merge-editor br.nl-extra {
+            display: none;
+        }
+        .compare-summary-pane {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            /*border: 1px solid #e2dfff;*/
+            /*background: #fbfaff;*/
+            border-radius: 14px;
+            padding: 18px 22px;
+            max-height: 60vh;
+            text-align: left;
+        }
+        .compare-summary-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+            /*color: #4b3aa2;*/
+        }
+        .compare-summary-empty {
+            margin: 0;
+            font-size: 14px;
+            color: #8078a6;
+        }
+        .compare-change-summary {
+            margin: 0;
+            padding-left: 20px;
+            list-style: decimal;
+            overflow-y: auto;
+            flex: 1 1 auto;
+            color: #4a4470;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+        .compare-change-summary li {
+            margin-bottom: 6px;
+        }
+        .compare-summary-pane:not(.has-changes) .compare-change-summary {
+            display: none;
+        }
+        .compare-summary-pane.has-changes {
+            box-shadow: inset 0 2px 6px rgba(78, 65, 168, 0.08);
+        }
+        .compare-summary-pane.has-changes .compare-summary-empty {
+            display: none;
+        }
+        .compare-diff-loading {
+            color: #6754c7;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .compare-diff-error {
+            color: #d6455d;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .merge-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 40px 0;
+        }
+        .merge-modal-content {
+            background: #ffffff;
+            margin: 0 auto;
+            max-width: 1800px;
+            width: 98%;
+            border-radius: 18px;
+            padding: 32px 36px;
+            box-shadow: 0 28px 60px rgba(33, 25, 69, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .merge-close {
+            align-self: flex-end;
+            font-size: 30px;
+            font-weight: bold;
+            color: #5a2ab5;
+            cursor: pointer;
+        }
+        .merge-close:hover {
+            color: #32137a;
+        }
+        .merge-note {
+            margin: 0;
+            font-size: 14px;
+            color: #5f5c73;
+            text-align: center;
+        }
+        .merge-columns {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(320px, 1fr));
+            gap: 24px;
+        }
+        .merge-column {
+            flex: 1 1 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .merge-editor {
+            width: 100%;
+            min-height: 260px;
+            border: 1px solid #d9d5ff;
+            border-radius: 10px;
+            padding: 12px;
+            background: #ffffff;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            overflow-y: auto;
+        }
+        .merge-editor:focus {
+            outline: 2px solid rgba(93, 68, 204, 0.45);
+            outline-offset: 2px;
+        }
+        .merge-editor .diff-segment {
+            display: inline;
+            border-radius: 4px;
+            padding: 1px 4px;
+        }
+        .merge-editor .diff-segment.del {
+            background: #ffe1e1;
+            color: #a62323;
+            text-decoration: none;
+            border-bottom: 2px solid rgba(166, 35, 35, 0.45);
+            box-shadow: 0 0 0 1px rgba(166, 35, 35, 0.18);
+        }
+        .merge-editor .diff-segment.ins {
+            background: #dcf7de;
+            color: #1c6b32;
+            text-decoration: none;
+            border-bottom: 2px solid rgba(28, 107, 50, 0.45);
+            box-shadow: 0 0 0 1px rgba(28, 107, 50, 0.18);
+        }
+        .merge-loading {
+            color: #5f5c73;
+            font-style: italic;
+            margin: 0;
+        }
+        .merge-action {
+            align-self: center;
+            padding: 10px 16px;
+            border-radius: 10px;
+            background: #f5f5ff;
+            border: 1px solid #d6cffe;
+            font-weight: 600;
+            color: #3f2d7b;
+            cursor: pointer;
+        }
+        .merge-action:hover {
+            background: #ece6ff;
+        }
+        @media (max-width: 900px) {
+            .merge-columns {
+                grid-template-columns: 1fr;
+            }
+            .merge-modal-content {
+                max-width: 92%;
+            }
+        }
+        @media (max-width: 900px) {
+            .compare-body {
+                grid-template-columns: 1fr;
+            }
+            .compare-summary-pane {
+                max-height: 260px;
+            }
+        }
+        table.diff {font-family:Courier; border:medium;  border-top: 1px solid black; border-bottom: 1px solid black;}
+        .diff_header {background-color:#e0e0e0}
+        td.diff_header {text-align:right}
+        .diff_next {background-color:#c0c0c0}
+        .diff_add {background-color:#aaffaa}
+        .diff_chg {background-color:#ffff77}
+        .diff_sub {background-color:#ffaaaa}

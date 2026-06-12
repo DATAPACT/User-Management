@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %} Home {% endblock %}
+
+{% block content %}
+  <section id="hero" class="hero d-flex align-items-center">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-6 d-flex flex-column justify-content-center">
+          <h1 data-aos="fade-up">User Management Service</h1>
+          <h2 data-aos="fade-up" data-aos-delay="400">
+            A shared registration and account-management frontend for connected services.
+          </h2>
+          <div data-aos="fade-up" data-aos-delay="600">
+            <div class="text-center text-lg-start">
+              <a href="{% url 'login' %}" class="btn-get-started scrollto d-inline-flex align-items-center justify-content-center align-self-center">
+                <span>Get Started</span>
+                <i class="bi bi-arrow-right"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6 hero-img" data-aos="zoom-out" data-aos-delay="200">
+          <img src="{% static 'img/hero-img.png' %}" class="img-fluid" alt="User Management">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main id="main">
+    <section id="values" class="values">
+      <div class="container" data-aos="fade-up">
+        <header class="section-header">
+          <h2>Features</h2>
+          <p>What This Service Provides</p>
+        </header>
+
+        <div class="row">
+          <div class="col-lg-4" data-aos="fade-up" data-aos-delay="200">
+            <div class="box">
+              <img src="{% static 'img/values-1.png' %}" class="img-fluid" alt="">
+              <h3>Central Registration</h3>
+              <p>Users can register once through a shared user-management interface.</p>
+            </div>
+          </div>
+
+          <div class="col-lg-4 mt-4 mt-lg-0" data-aos="fade-up" data-aos-delay="400">
+            <div class="box">
+              <img src="{% static 'img/values-2.png' %}" class="img-fluid" alt="">
+              <h3>Account Management</h3>
+              <p>Users can maintain their profile details and password from one place.</p>
+            </div>
+          </div>
+
+          <div class="col-lg-4 mt-4 mt-lg-0" data-aos="fade-up" data-aos-delay="600">
+            <div class="box">
+              <img src="{% static 'img/values-3.png' %}" class="img-fluid" alt="">
+              <h3>Shared Across Services</h3>
+              <p>Negotiation-Tool and Consent-Manager can redirect here for registration and account updates.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+{% endblock %}

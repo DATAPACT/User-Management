@@ -1,0 +1,620 @@
+{% extends 'base.html' %}
+{% block title %}Manage Account{% endblock %}
+{% block inpagecss %}
+  .account-page {
+    padding: 120px 0 80px;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top right, rgba(65, 84, 241, 0.10), transparent 26%),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+
+  .account-topbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .account-topbar a {
+    color: #4154f1;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .profile-trigger {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(65, 84, 241, 0.25);
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #4154f1;
+    box-shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
+  }
+
+  .account-menu {
+    min-width: 220px;
+    border: none;
+    border-radius: 18px;
+    box-shadow: 0 22px 48px rgba(17, 24, 39, 0.14);
+    padding: 12px;
+  }
+
+  .account-menu a {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 12px;
+    color: #1f2937;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .account-menu a:hover {
+    background: #f4f7ff;
+    color: #4154f1;
+  }
+
+  .welcome-copy h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2a44;
+    margin-bottom: 10px;
+  }
+
+  .welcome-copy p {
+    color: #6b7280;
+    margin-bottom: 0;
+  }
+
+  .account-card {
+    margin-top: 30px;
+    background: #fff;
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 26px 60px rgba(15, 23, 42, 0.08);
+    padding: 32px;
+  }
+
+  .account-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .account-card-header h3 {
+    margin: 0;
+    color: #1f2a44;
+    font-weight: 700;
+  }
+
+  .account-form .form-label {
+    font-weight: 600;
+    color: #344054;
+  }
+
+  .account-form .form-control,
+  .account-form .form-select {
+    border-radius: 14px;
+    min-height: 48px;
+  }
+
+  .field-feedback {
+    min-height: 22px;
+  }
+
+  .account-form .form-control:disabled,
+  .account-form .form-select:disabled {
+    background: #f8fafc;
+    color: #475467;
+    border-color: #e5e7eb;
+    opacity: 1;
+  }
+
+  .account-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .account-actions .btn {
+    min-width: 96px;
+    border-radius: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+  }
+
+  .btn-outline-primary {
+    border-width: 2px;
+  }
+
+  .account-alerts {
+    margin-top: 20px;
+  }
+
+  @media (max-width: 767px) {
+    .account-page {
+      padding-top: 110px;
+    }
+
+    .account-card {
+      padding: 22px;
+    }
+
+    .account-card-header,
+    .account-topbar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .account-actions {
+      flex-direction: column;
+    }
+
+    .account-actions .btn {
+      width: 100%;
+    }
+  }
+{% endblock %}
+{% block content %}
+<main class="account-page">
+  <div class="container">
+    <div class="account-topbar">
+      {% if is_admin_view %}
+      <a href="{% url 'admin_manage' %}">Back to Admin Manage</a>
+      {% else %}
+      <a href="{% url 'index' %}">Home</a>
+      {% endif %}
+      <div class="dropdown">
+        <button class="profile-trigger" type="button" id="accountMenuButton" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.33 0-6 1.79-6 4v1h12v-1c0-2.21-2.67-4-6-4Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end account-menu" aria-labelledby="accountMenuButton">
+          <a href="{% url 'reset_password' %}">Reset-Password</a>
+          <a href="{% url 'logout' %}">Logout</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="welcome-copy">
+      <h2>Welcome {{ welcome_name }}.</h2>
+      <p>Review your profile information and update it when needed.</p>
+    </div>
+
+    <div class="account-alerts">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    <div class="account-card">
+      <div class="account-card-header">
+        <h3>Your Information</h3>
+        {% if read_only_mode %}
+        <span class="badge bg-light text-dark">Read Only</span>
+        {% else %}
+        <button type="button" id="editProfileButton" class="btn btn-outline-primary">Edit Profile</button>
+        {% endif %}
+      </div>
+
+<!--      <form method="post" id="manageAccountForm" class="account-form">-->
+      <form method="post" action="{% url 'manage_account' %}" id="manageAccountForm" class="account-form">
+
+        {% csrf_token %}
+        <div class="row g-4">
+          <div class="col-md-6">
+            <label for="first_name" class="form-label">First name</label>
+            <input type="text" class="form-control editable-field" id="first_name" name="first_name" value="{{ form_data.first_name|default:'' }}" disabled>
+          </div>
+          <div class="col-md-6">
+            <label for="last_name" class="form-label">Last name</label>
+            <input type="text" class="form-control editable-field" id="last_name" name="last_name" value="{{ form_data.last_name|default:'' }}" disabled>
+          </div>
+          <div class="col-md-6">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" class="form-control editable-field" id="username" name="username" value="{{ form_data.username|default:'' }}" aria-describedby="usernameAvailability" disabled>
+            <div id="usernameAvailability" class="form-text field-feedback" aria-live="polite"></div>
+          </div>
+          <div class="col-md-6">
+            <label for="username_email" class="form-label">Email address</label>
+            <input type="email" class="form-control editable-field" id="username_email" name="username_email" value="{{ form_data.username_email|default:'' }}" aria-describedby="emailAvailability" disabled>
+            <div id="emailAvailability" class="form-text field-feedback" aria-live="polite"></div>
+          </div>
+          <div class="col-md-6">
+            <label for="type" class="form-label">User type</label>
+            <select class="form-select editable-field" id="type" name="type" disabled>
+              {% if form_data.type and form_data.type != "consumer" and form_data.type != "provider" %}
+                <option value="{{ form_data.type }}" selected>{{ form_data.type|title }}</option>
+              {% endif %}
+              <option value="consumer" {% if form_data.type == "consumer" %}selected{% endif %}>Consumer</option>
+              <option value="provider" {% if form_data.type == "provider" %}selected{% endif %}>Provider</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label for="organization" class="form-label">Organization</label>
+            <input type="text" class="form-control editable-field" id="organization" name="organization" value="{{ form_data.organization|default:'' }}" disabled>
+          </div>
+          <div class="col-md-6">
+            <label for="incorporation" class="form-label">Incorporation</label>
+            <input type="text" class="form-control editable-field" id="incorporation" name="incorporation" value="{{ form_data.incorporation|default:'' }}" disabled>
+          </div>
+          <div class="col-md-6">
+            <label for="position_title" class="form-label">Position title</label>
+            <input type="text" class="form-control editable-field" id="position_title" name="position_title" value="{{ form_data.position_title|default:'' }}" disabled>
+          </div>
+
+          <div class="col-md-6">
+            <label for="vat_no" class="form-label">VAT No</label>
+            <input type="text" class="form-control editable-field" id="vat_no" name="vat_no" value="{{ form_data.vat_no|default:'' }}" disabled>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Phone number</label>
+            <div class="row">
+              <div class="col-md-5 mb-3 mb-md-0">
+                <select class="form-select editable-field" name="phone_region" id="phone_region" aria-describedby="phoneRegionHelp phoneValidation" disabled>
+                  <option value="" {% if not form_data.phone_region %}selected{% endif %}>Select phone region</option>
+                  {% for region_value, region_label in phone_region_choices %}
+                    <option value="{{ region_value }}" {% if form_data.phone_region == region_value %}selected{% endif %}>
+                      {{ region_label }}
+                    </option>
+                  {% endfor %}
+                </select>
+<!--                <div id="phoneRegionHelp" class="form-text">Choose a region if you want to add a phone number.</div>-->
+              </div>
+              <div class="col-md-7">
+                <input type="text" class="form-control editable-field" id="phone" name="phone" value="{{ form_data.phone|default:'' }}" aria-describedby="phoneHelp phoneValidation" disabled>
+<!--                <div id="phoneHelp" class="form-text">Enter your phone number for the selected region.</div>-->
+                <div id="phoneValidation" class="form-text field-feedback" aria-live="polite"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <label for="address" class="form-label">Address</label>
+            <input type="text" class="form-control editable-field" id="address" name="address" value="{{ form_data.address|default:'' }}" disabled>
+          </div>
+
+        </div>
+
+        {% if not read_only_mode %}
+        <div class="account-actions">
+          <button type="button" id="cancelEditButton" class="btn btn-light" style="display: none;">Cancel</button>
+          <button type="submit" id="saveProfileButton" class="btn btn-primary" style="display: none;">Save</button>
+        </div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+</main>
+
+{% if not read_only_mode %}
+<script>
+  (function () {
+    const form = document.getElementById("manageAccountForm");
+    const editButton = document.getElementById("editProfileButton");
+    const cancelButton = document.getElementById("cancelEditButton");
+    const saveButton = document.getElementById("saveProfileButton");
+    const editableFields = Array.from(form.querySelectorAll(".editable-field"));
+    const emailInput = document.getElementById("username_email");
+    const emailAvailability = document.getElementById("emailAvailability");
+    const usernameInput = document.getElementById("username");
+    const usernameAvailability = document.getElementById("usernameAvailability");
+    const phoneRegionInput = document.getElementById("phone_region");
+    const phoneInput = document.getElementById("phone");
+    const phoneValidation = document.getElementById("phoneValidation");
+    const initialValues = new Map(editableFields.map(function (field) {
+      return [field.name, field.value];
+    }));
+    let phoneIsValid = !phoneInput.value.trim();
+
+    const checks = [
+      {
+        input: emailInput,
+        output: emailAvailability,
+        url: "{% url 'check_user_email' %}",
+        param: "email",
+        checking: "Checking email availability...",
+        duplicate: "Email already registered, please use another email.",
+        available: "Email is available."
+      },
+      {
+        input: usernameInput,
+        output: usernameAvailability,
+        url: "{% url 'check_username' %}",
+        param: "username",
+        checking: "Checking username availability...",
+        duplicate: "Username already registered, please use another username.",
+        available: "Username is available."
+      }
+    ];
+
+    function setEditMode(enabled) {
+      editableFields.forEach(function (field) {
+        field.disabled = !enabled;
+      });
+      editButton.style.display = enabled ? "none" : "inline-flex";
+      cancelButton.style.display = enabled ? "inline-flex" : "none";
+      saveButton.style.display = enabled ? "inline-flex" : "none";
+    }
+
+    function setFieldState(check, state, message) {
+      check.output.textContent = message || "";
+      check.output.classList.remove("text-danger", "text-success", "text-muted");
+      check.input.classList.remove("is-invalid", "is-valid");
+
+      if (state === "invalid") {
+        check.output.classList.add("text-danger");
+        check.input.classList.add("is-invalid");
+      } else if (state === "valid") {
+        check.output.classList.add("text-success");
+        check.input.classList.add("is-valid");
+      } else if (state === "checking") {
+        check.output.classList.add("text-muted");
+      }
+    }
+
+    async function checkAvailability(check) {
+      const value = check.input.value.trim();
+      const initialValue = initialValues.get(check.input.name) || "";
+
+      check.lastCheckedValue = value;
+      check.lastExists = false;
+
+      if (!value) {
+        setFieldState(check, "idle", "");
+        return false;
+      }
+
+      if (value === initialValue) {
+        setFieldState(check, "idle", "");
+        return false;
+      }
+
+      if (!check.input.checkValidity()) {
+        setFieldState(check, "invalid", check.input.validationMessage);
+        return false;
+      }
+
+      setFieldState(check, "checking", check.checking);
+      check.pending = fetch(`${check.url}?${check.param}=${encodeURIComponent(value)}`);
+
+      try {
+        const response = await check.pending;
+        if (value !== check.input.value.trim()) {
+          return false;
+        }
+        if (!response.ok) {
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (error) {
+            data = {};
+          }
+          setFieldState(check, "invalid", data.detail || data.error || "This value is not valid.");
+          return true;
+        }
+
+        const data = await response.json();
+        check.lastExists = Boolean(data.exists);
+        if (check.lastExists) {
+          setFieldState(check, "invalid", check.duplicate);
+          return true;
+        }
+
+        setFieldState(check, "valid", check.available);
+        return false;
+      } catch (error) {
+        setFieldState(check, "idle", "");
+        return false;
+      } finally {
+        check.pending = null;
+      }
+    }
+
+    function setPhoneState(state, message) {
+      phoneValidation.textContent = message || "";
+      phoneValidation.classList.remove("text-danger", "text-success", "text-muted");
+      phoneInput.classList.remove("is-invalid", "is-valid");
+      phoneRegionInput.classList.remove("is-invalid", "is-valid");
+
+      if (state === "invalid") {
+        phoneValidation.classList.add("text-danger");
+        phoneInput.classList.add("is-invalid");
+        if (phoneInput.value.trim() && !phoneRegionInput.value.trim()) {
+          phoneRegionInput.classList.add("is-invalid");
+        } else if (phoneRegionInput.value.trim()) {
+          phoneRegionInput.classList.add("is-valid");
+        }
+      } else if (state === "valid") {
+        phoneValidation.classList.add("text-success");
+        phoneInput.classList.add("is-valid");
+        phoneRegionInput.classList.add("is-valid");
+      } else if (state === "checking") {
+        phoneValidation.classList.add("text-muted");
+      }
+    }
+
+    async function checkPhoneNumber() {
+      const phoneValue = phoneInput.value.trim();
+      const phoneRegionValue = phoneRegionInput.value.trim();
+
+      phoneIsValid = true;
+
+      if (!phoneValue) {
+        setPhoneState("idle", "");
+        phoneRegionInput.classList.remove("is-invalid", "is-valid");
+        return true;
+      }
+
+      if (!phoneRegionValue) {
+        phoneIsValid = false;
+        setPhoneState("invalid", "Please choose a phone region.");
+        return false;
+      }
+
+      setPhoneState("checking", "Checking phone number...");
+
+      try {
+        const response = await fetch(
+          `{% url 'check_phone_number' %}?phone_region=${encodeURIComponent(phoneRegionValue)}&phone=${encodeURIComponent(phoneValue)}`
+        );
+        const data = await response.json();
+
+        phoneIsValid = Boolean(data.valid);
+        if (!phoneIsValid) {
+          setPhoneState("invalid", data.detail || data.error || "Phone number is not valid.");
+          return false;
+        }
+
+        setPhoneState("valid", data.detail || "Phone number is valid.");
+        return true;
+      } catch (error) {
+        phoneIsValid = false;
+        setPhoneState("invalid", "Phone validation service is unavailable.");
+        return false;
+      }
+    }
+
+    editButton.addEventListener("click", function () {
+      setEditMode(true);
+    });
+
+    cancelButton.addEventListener("click", function () {
+      editableFields.forEach(function (field) {
+        field.value = initialValues.get(field.name) || "";
+        field.classList.remove("is-invalid", "is-valid");
+      });
+      checks.forEach(function (check) {
+        setFieldState(check, "idle", "");
+        check.lastCheckedValue = initialValues.get(check.input.name) || "";
+        check.lastExists = false;
+      });
+      phoneIsValid = !phoneInput.value.trim();
+      setPhoneState("idle", "");
+      phoneRegionInput.classList.remove("is-invalid", "is-valid");
+      setEditMode(false);
+    });
+
+    checks.forEach(function (check) {
+      check.lastCheckedValue = initialValues.get(check.input.name) || "";
+      check.lastExists = false;
+      check.pending = null;
+
+      check.input.addEventListener("blur", function () {
+        if (!check.input.disabled) {
+          checkAvailability(check);
+        }
+      });
+
+      check.input.addEventListener("input", function () {
+        check.lastExists = false;
+        if (!check.input.value.trim()) {
+          setFieldState(check, "idle", "");
+        } else if (!check.input.checkValidity()) {
+          setFieldState(check, "invalid", check.input.validationMessage);
+        } else if (check.input.value.trim() === (initialValues.get(check.input.name) || "")) {
+          setFieldState(check, "idle", "");
+        } else {
+          setFieldState(check, "idle", "");
+        }
+      });
+    });
+
+    phoneInput.addEventListener("blur", function () {
+      if (!phoneInput.disabled) {
+        checkPhoneNumber();
+      }
+    });
+
+    phoneInput.addEventListener("input", function () {
+      phoneIsValid = !phoneInput.value.trim();
+      if (!phoneInput.value.trim()) {
+        setPhoneState("idle", "");
+        phoneRegionInput.classList.remove("is-invalid", "is-valid");
+      } else {
+        setPhoneState("idle", "");
+      }
+    });
+
+    phoneRegionInput.addEventListener("change", function () {
+      if (phoneInput.disabled) {
+        return;
+      }
+      if (phoneInput.value.trim()) {
+        checkPhoneNumber();
+      } else {
+        phoneRegionInput.classList.remove("is-invalid", "is-valid");
+      }
+    });
+
+    form.addEventListener("submit", async function (event) {
+
+      const invalidFormatCheck = checks.find(function (check) {
+        const value = check.input.value.trim();
+        const initialValue = initialValues.get(check.input.name) || "";
+        return value && value !== initialValue && !check.input.checkValidity();
+      });
+      if (invalidFormatCheck) {
+        event.preventDefault();
+        setFieldState(invalidFormatCheck, "invalid", invalidFormatCheck.input.validationMessage);
+        return;
+      }
+
+      const checksToRun = checks.filter(function (check) {
+        const value = check.input.value.trim();
+        const initialValue = initialValues.get(check.input.name) || "";
+        return (
+          check.pending ||
+          (value && value !== initialValue && check.input.checkValidity() && value !== check.lastCheckedValue)
+        );
+      });
+      const shouldCheckPhone = phoneInput.value.trim().length > 0 && (!phoneIsValid || !phoneRegionInput.value.trim());
+
+      if (checksToRun.length || shouldCheckPhone) {
+        event.preventDefault();
+        saveButton.disabled = true;
+        const results = await Promise.all(checksToRun.map(checkAvailability));
+        const validPhone = shouldCheckPhone ? await checkPhoneNumber() : phoneIsValid;
+        saveButton.disabled = false;
+        if (!results.some(Boolean) && validPhone) {
+          editableFields.forEach(function (field) {
+            field.disabled = false;
+          });
+          form.requestSubmit();
+        }
+        return;
+      }
+
+      const duplicateCheck = checks.find(function (check) {
+        return check.lastExists;
+      });
+      if (duplicateCheck) {
+        event.preventDefault();
+        setFieldState(duplicateCheck, "invalid", duplicateCheck.duplicate);
+      }
+
+      if (!phoneIsValid) {
+        event.preventDefault();
+        checkPhoneNumber();
+      }
+    });
+
+    setEditMode(false);
+  })();
+</script>
+{% endif %}
+{% endblock %}

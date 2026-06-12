@@ -1,0 +1,557 @@
+{% extends 'base.html' %}
+{%load static %}
+{% block title %} Sign Up {% endblock %}
+{% block inpagecss %}
+    .login-form {
+{#      display: flex;#}
+      align-items: center;
+      justify-content: center;
+{#      height: 100vh; /* Set the height of the container to the full viewport height */#}
+    }
+{% endblock %}
+{% block content %}
+
+ <main id="main">
+    <section id="faq" class="faq">
+
+      <div class="container" data-aos="fade-up">
+
+        <header class="section-header">
+          <p>Create a user account</p>
+        </header>
+
+        <div class="row">
+          <div class="col-lg-2"></div>
+          <div class="col-lg-7">
+
+
+            <form method="post" action="{% url 'register' %}" id="signUpForm" novalidate>
+            {% csrf_token %}
+
+            <p class="text-muted">
+              <span class="text-danger">*</span> Required fields
+            </p>
+
+            <div class="row">
+              <div class="col-md-6 mb-4">
+                <label for="first_name">First name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="first_name" name="first_name" value="{{ form_data.first_name|default:'' }}" required>
+                <div id="firstNameHelp" class="form-text">Enter your First Name</div>
+              </div>
+              <div class="col-md-6 mb-4">
+                <label for="last_name">Last name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="last_name" name="last_name" value="{{ form_data.last_name|default:'' }}" required>
+                <div id="lastNameHelp" class="form-text">Enter your Last Name.</div>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label for="email" class="form-label">Email address <span class="text-danger">*</span></label>
+              <input type="email" class="form-control" name="email" id="email" value="{{ form_data.email|default:'' }}" aria-describedby="emailHelp emailAvailability" required>
+              <div id="emailHelp" class="form-text">Enter your registered email address.</div>
+              <div id="emailAvailability" class="form-text" aria-live="polite"></div>
+            </div>
+
+            <div class="mb-4">
+              <label for="username" class="form-label">Username <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" name="username" id="username" value="{{ form_data.username|default:'' }}" aria-describedby="usernameHelp usernameAvailability" required>
+              <div id="usernameHelp" class="form-text">Enter your username.</div>
+              <div id="usernameAvailability" class="form-text" aria-live="polite"></div>
+            </div>
+
+            <div class="mb-4">
+              <label for="user_type" class="form-label">User type <span class="text-danger">*</span></label>
+              <select class="form-select" id="user_type" name="user_type" aria-label="Select user type" required>
+                <option value="" {% if not form_data.user_type %}selected{% endif %} disabled>Select user type</option>
+                <option value="consumer" {% if form_data.user_type == "consumer" %}selected{% endif %}>Consumer</option>
+                <option value="provider" {% if form_data.user_type == "provider" %}selected{% endif %}>Provider</option>
+              </select>
+              <div id="userTypeHelp" class="form-text">Select your user type.</div>
+            </div>
+
+            <div class="mb-4">
+              <label for="organization" class="form-label">Organization</label>
+              <input type="text" class="form-control" name="organization" id="organization" value="{{ form_data.organization|default:'' }}" aria-describedby="organizationHelp">
+              <div id="organizationHelp" class="form-text">Enter your organization.</div>
+            </div>
+
+{#            <div class="mb-4">#}
+{#              <label for="distinctive_title" class="form-label">Distinctive Title</label>#}
+{#              <input type="text" class="form-control" name="distinctive_title" id="distinctive_title" aria-describedby="distinctiveTitleHelp">#}
+{#              <div id="distinctiveTitleHelp" class="form-text">Enter your distinctive title.</div>#}
+{#            </div>#}
+
+            <div class="mb-4">
+              <label for="incorporation" class="form-label">Incorporation</label>
+              <input type="text" class="form-control" name="incorporation" id="incorporation" value="{{ form_data.incorporation|default:'' }}" aria-describedby="incorporationHelp">
+              <div id="incorporationHelp" class="form-text">Enter your incorporation.</div>
+            </div>
+
+            <div class="mb-4">
+              <label for="address" class="form-label">Address</label>
+              <input type="text" class="form-control" name="address" id="address" value="{{ form_data.address|default:'' }}" aria-describedby="addressHelp">
+              <div id="addressHelp" class="form-text">Enter your address.</div>
+            </div>
+
+            <div class="mb-4">
+              <label for="vat_no" class="form-label">VAT No</label>
+              <input type="text" class="form-control" name="vat_no" id="vat_no" value="{{ form_data.vat_no|default:'' }}" aria-describedby="vatNoHelp">
+              <div id="vatNoHelp" class="form-text">Enter your Value Added Tax (VAT) No.</div>
+            </div>
+
+{#            <div class="mb-4">#}
+{#              <label for="legal_representative" class="form-label">Legal Representative</label>#}
+{#              <input type="text" class="form-control" name="legal_representative" id="legal_representative" aria-describedby="legalRepresentativeHelp">#}
+{#              <div id="legalRepresentativeHelp" class="form-text">Enter your legal representative.</div>#}
+{#            </div>#}
+
+{#            <div class="mb-4">#}
+{#              <label for="contact_person" class="form-label">Contact Person</label>#}
+{#              <input type="text" class="form-control" name="contact_person" id="contact_person" aria-describedby="contactPersonHelp">#}
+{#              <div id="contactPersonHelp" class="form-text">Enter your contact person.</div>#}
+{#            </div>#}
+
+            <div class="mb-4">
+              <label for="position_title" class="form-label">Position Title</label>
+              <input type="text" class="form-control" name="position_title" id="position_title" value="{{ form_data.position_title|default:'' }}" aria-describedby="PositionTitleHelp">
+              <div id="PositionTitleHelp" class="form-text">Enter your position title.</div>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Phone number</label>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-4">
+                <select class="form-select" name="phone_region" id="phone_region" aria-describedby="phoneRegionHelp phoneValidation">
+                  <option value="" {% if not form_data.phone_region %}selected{% endif %}>Select phone region</option>
+                  {% for region_value, region_label in phone_region_choices %}
+                    <option value="{{ region_value }}" {% if form_data.phone_region == region_value %}selected{% endif %}>
+                      {{ region_label }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <div id="phoneRegionHelp" class="form-text">Choose a region if you want to add a phone number.</div>
+              </div>
+
+              <div class="col-md-8 mb-4">
+                <input type="text" class="form-control" name="phone" id="phone" value="{{ form_data.phone|default:'' }}" aria-describedby="phoneHelp phoneValidation">
+                <div id="phoneHelp" class="form-text">Enter your phone number for the selected region.</div>
+                <div id="phoneValidation" class="form-text" aria-live="polite"></div>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
+              <input type="password" class="form-control" id="password" name="password" required>
+              <div id="passwordStrength" class="form-text" aria-live="polite"></div>
+            </div>
+
+            <div class="mb-4">
+              <label for="confirmpassword" class="form-label">Confirm password <span class="text-danger">*</span></label>
+              <input type="password" class="form-control" id="confirmpassword" name="confirmpassword" required>
+              <div id="confirmPasswordHelp" class="form-text" aria-live="polite"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="signUpButton">Sign Up</button>
+            <div class="mb-3">
+              <a href="{% url 'login' %}">Login</a>
+            </div>
+          </form>
+          </div>
+
+          <div class="col-lg-3">
+{% comment %} <p>
+    <b>Note: </b> All fields are required.
+</p> {% endcomment %}
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'danger' }}">
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+
+
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section><!-- End F.A.Q Section -->
+ </main><!-- End #main -->
+
+<script>
+  (function () {
+    const form = document.getElementById("signUpForm");
+    const signUpButton = document.getElementById("signUpButton");
+    const passwordInput = document.getElementById("password");
+    const passwordStrength = document.getElementById("passwordStrength");
+    const confirmPasswordInput = document.getElementById("confirmpassword");
+    const confirmPasswordHelp = document.getElementById("confirmPasswordHelp");
+    const phoneRegionInput = document.getElementById("phone_region");
+    const phoneInput = document.getElementById("phone");
+    const phoneValidation = document.getElementById("phoneValidation");
+    const checks = [
+      {
+        input: document.getElementById("email"),
+        output: document.getElementById("emailAvailability"),
+        url: "{% url 'check_user_email' %}",
+        param: "email",
+        checking: "Checking email availability...",
+        duplicate: "Email already registered, please use another email.",
+        available: "Email is available."
+      },
+      {
+        input: document.getElementById("username"),
+        output: document.getElementById("usernameAvailability"),
+        url: "{% url 'check_username' %}",
+        param: "username",
+        checking: "Checking username availability...",
+        duplicate: "Username already registered, please use another username.",
+        available: "Username is available."
+      }
+    ];
+    let passwordIsStrong = false;
+    let passwordsMatch = false;
+    let phoneIsValid = !phoneInput.value.trim();
+
+    function setFieldState(check, state, message) {
+      check.output.textContent = message || "";
+      check.output.classList.remove("text-danger", "text-success", "text-muted");
+      check.input.classList.remove("is-invalid", "is-valid");
+
+      if (state === "invalid") {
+        check.output.classList.add("text-danger");
+        check.input.classList.add("is-invalid");
+      } else if (state === "valid") {
+        check.output.classList.add("text-success");
+        check.input.classList.add("is-valid");
+      } else if (state === "checking") {
+        check.output.classList.add("text-muted");
+      }
+    }
+
+    async function checkAvailability(check) {
+      const value = check.input.value.trim();
+
+      check.lastCheckedValue = value;
+      check.lastExists = false;
+
+      if (!value) {
+        setFieldState(check, "idle", "");
+        return false;
+      }
+
+      if (!check.input.checkValidity()) {
+        setFieldState(check, "invalid", check.input.validationMessage);
+        return false;
+      }
+
+      setFieldState(check, "checking", check.checking);
+      check.pending = fetch(`${check.url}?${check.param}=${encodeURIComponent(value)}`);
+
+      try {
+        const response = await check.pending;
+        if (value !== check.input.value.trim()) {
+          return false;
+        }
+        if (!response.ok) {
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (error) {
+            data = {};
+          }
+          setFieldState(check, "invalid", data.detail || data.error || "This value is not valid.");
+          return true;
+        }
+
+        const data = await response.json();
+        check.lastExists = Boolean(data.exists);
+        if (check.lastExists) {
+          setFieldState(check, "invalid", check.duplicate);
+          return true;
+        }
+
+        setFieldState(check, "valid", check.available);
+        return false;
+      } catch (error) {
+        setFieldState(check, "idle", "");
+        return false;
+      } finally {
+        check.pending = null;
+      }
+    }
+
+    function setPasswordState(state, message) {
+      passwordStrength.textContent = message || "";
+      passwordStrength.classList.remove("text-danger", "text-success", "text-muted");
+      passwordInput.classList.remove("is-invalid", "is-valid");
+
+      if (state === "invalid") {
+        passwordStrength.classList.add("text-danger");
+        passwordInput.classList.add("is-invalid");
+      } else if (state === "valid") {
+        passwordStrength.classList.add("text-success");
+        passwordInput.classList.add("is-valid");
+      } else if (state === "checking") {
+        passwordStrength.classList.add("text-muted");
+      }
+    }
+
+    function setConfirmPasswordState(state, message) {
+      confirmPasswordHelp.textContent = message || "";
+      confirmPasswordHelp.classList.remove("text-danger", "text-success", "text-muted");
+      confirmPasswordInput.classList.remove("is-invalid", "is-valid");
+
+      if (state === "invalid") {
+        confirmPasswordHelp.classList.add("text-danger");
+        confirmPasswordInput.classList.add("is-invalid");
+      } else if (state === "valid") {
+        confirmPasswordHelp.classList.add("text-success");
+        confirmPasswordInput.classList.add("is-valid");
+      } else if (state === "checking") {
+        confirmPasswordHelp.classList.add("text-muted");
+      }
+    }
+
+    function setPhoneState(state, message) {
+      phoneValidation.textContent = message || "";
+      phoneValidation.classList.remove("text-danger", "text-success", "text-muted");
+      phoneInput.classList.remove("is-invalid", "is-valid");
+      phoneRegionInput.classList.remove("is-invalid", "is-valid");
+
+      if (state === "invalid") {
+        phoneValidation.classList.add("text-danger");
+        phoneInput.classList.add("is-invalid");
+        if (phoneInput.value.trim() && !phoneRegionInput.value.trim()) {
+          phoneRegionInput.classList.add("is-invalid");
+        } else if (phoneRegionInput.value.trim()) {
+          phoneRegionInput.classList.add("is-valid");
+        }
+      } else if (state === "valid") {
+        phoneValidation.classList.add("text-success");
+        phoneInput.classList.add("is-valid");
+        phoneRegionInput.classList.add("is-valid");
+      } else if (state === "checking") {
+        phoneValidation.classList.add("text-muted");
+      }
+    }
+
+    async function checkStrongPassword() {
+      const value = passwordInput.value;
+      passwordIsStrong = false;
+
+      if (!value) {
+        setPasswordState("idle", "");
+        return false;
+      }
+
+      setPasswordState("checking", "Checking password strength...");
+
+      try {
+        const response = await fetch(
+          `{% url 'check_strong_password' %}?password=${encodeURIComponent(value)}`
+        );
+        const data = await response.json();
+
+        passwordIsStrong = Boolean(data.valid);
+        if (!passwordIsStrong) {
+          setPasswordState("invalid", data.detail || data.error || "Password is not strong.");
+          return false;
+        }
+
+        setPasswordState("valid", data.detail || "Password is strong.");
+        return true;
+      } catch (error) {
+        setPasswordState("idle", "");
+        return false;
+      }
+    }
+
+    function checkConfirmPassword() {
+      const passwordValue = passwordInput.value;
+      const confirmValue = confirmPasswordInput.value;
+
+      passwordsMatch = false;
+
+      if (!confirmValue) {
+        setConfirmPasswordState("idle", "");
+        return false;
+      }
+
+      if (passwordValue !== confirmValue) {
+        setConfirmPasswordState("invalid", "Passwords do not match.");
+        return false;
+      }
+
+      passwordsMatch = true;
+      setConfirmPasswordState("valid", "Passwords match.");
+      return true;
+    }
+
+    async function checkPhoneNumber() {
+      const phoneValue = phoneInput.value.trim();
+      const phoneRegionValue = phoneRegionInput.value.trim();
+
+      phoneIsValid = true;
+
+      if (!phoneValue) {
+        setPhoneState("idle", "");
+        phoneRegionInput.classList.remove("is-invalid", "is-valid");
+        return true;
+      }
+
+      if (!phoneRegionValue) {
+        phoneIsValid = false;
+        setPhoneState("invalid", "Please choose a phone region.");
+        return false;
+      }
+
+      setPhoneState("checking", "Checking phone number...");
+
+      try {
+        const response = await fetch(
+          `{% url 'check_phone_number' %}?phone_region=${encodeURIComponent(phoneRegionValue)}&phone=${encodeURIComponent(phoneValue)}`
+        );
+        const data = await response.json();
+
+        phoneIsValid = Boolean(data.valid);
+        if (!phoneIsValid) {
+          setPhoneState("invalid", data.detail || data.error || "Phone number is not valid.");
+          return false;
+        }
+
+        setPhoneState("valid", data.detail || "Phone number is valid.");
+        return true;
+      } catch (error) {
+        phoneIsValid = false;
+        setPhoneState("invalid", "Phone validation service is unavailable.");
+        return false;
+      }
+    }
+
+    checks.forEach(function (check) {
+      check.lastCheckedValue = "";
+      check.lastExists = false;
+      check.pending = null;
+
+      check.input.addEventListener("blur", function () {
+        checkAvailability(check);
+      });
+      check.input.addEventListener("input", function () {
+        check.lastCheckedValue = "";
+        check.lastExists = false;
+        const value = check.input.value.trim();
+        if (!value) {
+          setFieldState(check, "idle", "");
+        } else if (!check.input.checkValidity()) {
+          setFieldState(check, "invalid", check.input.validationMessage);
+        } else {
+          setFieldState(check, "idle", "");
+        }
+      });
+    });
+
+    passwordInput.addEventListener("blur", function () {
+      checkStrongPassword();
+    });
+
+    passwordInput.addEventListener("input", function () {
+      passwordIsStrong = false;
+      setPasswordState("idle", "");
+      checkConfirmPassword();
+    });
+
+    confirmPasswordInput.addEventListener("blur", function () {
+      checkConfirmPassword();
+    });
+
+    confirmPasswordInput.addEventListener("input", function () {
+      checkConfirmPassword();
+    });
+
+    phoneInput.addEventListener("blur", function () {
+      checkPhoneNumber();
+    });
+
+    phoneInput.addEventListener("input", function () {
+      phoneIsValid = !phoneInput.value.trim();
+      if (!phoneInput.value.trim()) {
+        setPhoneState("idle", "");
+        phoneRegionInput.classList.remove("is-invalid", "is-valid");
+      } else {
+        setPhoneState("idle", "");
+      }
+    });
+
+    phoneRegionInput.addEventListener("change", function () {
+      if (phoneInput.value.trim()) {
+        checkPhoneNumber();
+      } else {
+        phoneRegionInput.classList.remove("is-invalid", "is-valid");
+      }
+    });
+
+    form.addEventListener("submit", async function (event) {
+      const invalidFormatCheck = checks.find(function (check) {
+        const value = check.input.value.trim();
+        return value && !check.input.checkValidity();
+      });
+      if (invalidFormatCheck) {
+        event.preventDefault();
+        setFieldState(invalidFormatCheck, "invalid", invalidFormatCheck.input.validationMessage);
+        return;
+      }
+
+      const checksToRun = checks.filter(function (check) {
+        const value = check.input.value.trim();
+        return check.pending || (value && check.input.checkValidity() && value !== check.lastCheckedValue);
+      });
+
+      const shouldCheckPassword = passwordInput.value.trim().length > 0 && !passwordIsStrong;
+      const confirmPasswordValid = checkConfirmPassword();
+      const shouldCheckPhone = phoneInput.value.trim().length > 0 && (!phoneIsValid || !phoneRegionInput.value.trim());
+
+      if (checksToRun.length || shouldCheckPassword || !confirmPasswordValid || shouldCheckPhone) {
+        event.preventDefault();
+        signUpButton.disabled = true;
+        const results = await Promise.all(checksToRun.map(checkAvailability));
+        const strongPassword = shouldCheckPassword ? await checkStrongPassword() : passwordIsStrong;
+        const validPhone = shouldCheckPhone ? await checkPhoneNumber() : phoneIsValid;
+        signUpButton.disabled = false;
+        if (!results.some(Boolean) && strongPassword && confirmPasswordValid && validPhone) {
+          form.requestSubmit();
+        }
+        return;
+      }
+
+      const duplicateCheck = checks.find(function (check) {
+        return check.lastExists;
+      });
+      if (duplicateCheck) {
+        event.preventDefault();
+        setFieldState(duplicateCheck, "invalid", duplicateCheck.duplicate);
+      }
+
+      if (!passwordIsStrong) {
+        event.preventDefault();
+        checkStrongPassword();
+      }
+
+      if (!passwordsMatch) {
+        event.preventDefault();
+        checkConfirmPassword();
+      }
+
+      if (!phoneIsValid) {
+        event.preventDefault();
+        checkPhoneNumber();
+      }
+    });
+  })();
+</script>
+{% endblock %}

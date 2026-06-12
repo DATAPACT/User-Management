@@ -8,11 +8,15 @@ import httpx
 from bson import ObjectId
 from bson.errors import InvalidId
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
-from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+from keycloak_auth.auth import decode_keycloak_token
+from keycloak_auth.user_mapping import resolve_or_create_local_user_async
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,6 +51,18 @@ MONGO_DB = os.getenv("MONGO_DB", "dips_services")
 
 KEYCLOAK_BASE_URL = (os.getenv("KEYCLOAK_BASE_URL") or "").rstrip("/")
 KEYCLOAK_REALM = (os.getenv("KEYCLOAK_REALM") or "").strip()
+
+KEYCLOAK_CLIENT_SECRET = (os.getenv("KEYCLOAK_CLIENT_SECRET") or "").strip()
+KEYCLOAK_CLIENT_ID = (os.getenv("KEYCLOAK_CLIENT_ID") or "").strip()
+KEYCLOAK_ISSUER = (os.getenv("KEYCLOAK_ISSUER") or "").rstrip("/")
+KEYCLOAK_JWKS_URL = (os.getenv("KEYCLOAK_JWKS_URL") or "").strip()
+KEYCLOAK_AUDIENCE = (os.getenv("KEYCLOAK_AUDIENCE") or "").strip()
+KEYCLOAK_ALGORITHMS = [
+    algo.strip()
+    for algo in (os.getenv("KEYCLOAK_ALGORITHMS") or "RS256").split(",")
+    if algo.strip()
+]
+
 KEYCLOAK_ADMIN_REALM = (os.getenv("KEYCLOAK_ADMIN_REALM") or "master").strip()
 KEYCLOAK_ADMIN_CLIENT_ID = (os.getenv("KEYCLOAK_ADMIN_CLIENT_ID") or "admin-cli").strip()
 KEYCLOAK_ADMIN_CLIENT_SECRET = (os.getenv("KEYCLOAK_ADMIN_CLIENT_SECRET") or "").strip()
@@ -66,8 +82,10 @@ client = AsyncIOMotorClient(MONGO_URI)
 db = client[MONGO_DB]
 users_collection = db.users
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login/")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/user/login/", auto_error=False)
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class PartyType(str, Enum):
     CONSUMER = "consumer"
@@ -563,6 +581,136 @@ async def verify_master(master_password_input: str) -> bool:
     return True
 
 
+def _claims_has_admin_role(claims: dict[str, Any]) -> bool:
+    role_values = []
+    realm_access = claims.get("realm_access") or {}
+    role_values.extend(str(role).lower() for role in (realm_access.get("roles") or []))
+    resource_access = claims.get("resource_access") or {}
+    for client_access in resource_access.values():
+        role_values.extend(str(role).lower() for role in ((client_access or {}).get("roles") or []))
+    return "admin" in role_values
+
+def _build_keycloak_token_url() -> str:
+    keycloak_issuer = (os.getenv("KEYCLOAK_ISSUER") or "").rstrip("/")
+    if not keycloak_issuer:
+        raise HTTPException(status_code=500, detail="KEYCLOAK_ISSUER environment variable not set")
+    return f"{keycloak_issuer}/protocol/openid-connect/token"
+
+
+async def verify_access_token_and_resolve_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        if not KEYCLOAK_ISSUER or not KEYCLOAK_JWKS_URL:
+            raise HTTPException(status_code=503, detail="Keycloak authentication is not configured")
+        payload = decode_keycloak_token(
+            token,
+            issuer=KEYCLOAK_ISSUER,
+            jwks_url=KEYCLOAK_JWKS_URL,
+            audience=KEYCLOAK_AUDIENCE or None,
+            verify_aud=bool(KEYCLOAK_AUDIENCE),
+            logger=logger,
+        )
+        email: Optional[str] = payload.get("email")
+        sub: Optional[str] = payload.get("sub")
+        if email is None or sub is None:
+            raise credentials_exception
+    except HTTPException:
+        raise
+    except Exception:
+        raise credentials_exception
+
+    user = await resolve_or_create_local_user_async(
+        users_collection,
+        payload,
+        logger,
+        include_audit_fields=False,
+    )
+
+    return {
+        "claims": payload,
+        "user": user,
+        "is_admin": _claims_has_admin_role(payload),
+    }
+
+
+async def resolve_optional_access_token(token: Optional[str] = Depends(oauth2_scheme_optional)):
+    if not token:
+        return None
+    return await verify_access_token_and_resolve_user(token)
+
+
+def _principal_user(current_principal: dict[str, Any]) -> dict[str, Any]:
+    return current_principal["user"]
+
+
+def _principal_user_id(current_principal: dict[str, Any]) -> str:
+    user = _principal_user(current_principal)
+    return str(user["_id"])
+
+
+def _require_admin(current_principal: dict[str, Any]) -> None:
+    if not current_principal.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin role required")
+
+
+def _authorize_self_or_admin(current_principal: dict[str, Any], target_user: dict[str, Any]) -> None:
+    if current_principal.get("is_admin"):
+        return
+
+    if str(target_user["_id"]) != _principal_user_id(current_principal):
+        raise HTTPException(status_code=403, detail="Not authorized for this user")
+
+
+def _authorize_self_only(current_principal: dict[str, Any], target_user: dict[str, Any]) -> None:
+    if str(target_user["_id"]) != _principal_user_id(current_principal):
+        raise HTTPException(status_code=403, detail="Not authorized for this user")
+
+
+@app.post("/user/login/", summary="Login via Keycloak")
+async def login_user_via_authentication_service(form_data: OAuth2PasswordRequestForm = Depends()):
+
+    # call ../protocol/openid-connect/token" request an access token
+    client_id = KEYCLOAK_CLIENT_ID or "user-management-api"
+    token_url = _build_keycloak_token_url()
+    form_payload = {
+        "client_id": client_id,
+        "grant_type": form_data.grant_type or "password",
+        "username": form_data.username,
+        "password": form_data.password,
+    }
+    requested_scopes = [scope for scope in (form_data.scopes or []) if scope]
+    for required_scope in ("openid", "profile", "email"):
+        if required_scope not in requested_scopes:
+            requested_scopes.append(required_scope)
+    form_payload["scope"] = " ".join(requested_scopes)
+    if KEYCLOAK_CLIENT_SECRET:
+        form_payload["client_secret"] = KEYCLOAK_CLIENT_SECRET
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.post(token_url, data=form_payload)
+
+    if response.status_code >= 400:
+        try:
+            payload = response.json()
+        except Exception:
+            payload = {"detail": response.text or "Keycloak login failed"}
+
+        detail = (
+            payload.get("error_description")
+            or payload.get("detail")
+            or payload.get("error")
+            or "Keycloak login failed"
+        )
+        raise HTTPException(status_code=response.status_code, detail=detail)
+    print("response.json():", response.json())
+    return response.json()
+
+
 @app.post("/user/register", response_model=User)
 async def register_user(user: User, master_password_input: str):
     await verify_master(master_password_input)
@@ -633,7 +781,11 @@ async def register_user(user: User, master_password_input: str):
 
 
 @app.put("/user/update-password", response_model=User)
-async def update_user_password(master_password_input: str, user_update: UserUpdatePassword):
+async def update_user_password(
+    master_password_input: Optional[str] = None,
+    user_update: UserUpdatePassword = None,
+    current_principal: Optional[dict[str, Any]] = Depends(resolve_optional_access_token),
+):
 
     """
     Request Body, example:
@@ -646,13 +798,21 @@ async def update_user_password(master_password_input: str, user_update: UserUpda
 
     """
 
-    await verify_master(master_password_input)
+    if user_update is None:
+        raise HTTPException(status_code=400, detail="Password update payload is required")
 
     existing_user = await _find_user_for_password_update(
         user_id=user_update.user_id,
         user_email=str(user_update.username_email) if user_update.username_email else None,
         keycloak_sub=user_update.keycloak_sub,
     )
+
+    if current_principal is not None:
+        _authorize_self_only(current_principal, existing_user)
+    else:
+        if not master_password_input:
+            raise HTTPException(status_code=401, detail="Authentication is required")
+        await verify_master(master_password_input)
 
     if not user_update.password:
         raise HTTPException(status_code=400, detail="Password is required")
@@ -687,6 +847,8 @@ async def update_user_details(
     user_update: UserDetailsUpdate,
     user_id: Optional[str] = Query(None, description="ID of the user to update"),
     user_email: Optional[EmailStr] = Query(None, description="Email of the user to update"),
+    current_principal: dict[str, Any] = Depends(verify_access_token_and_resolve_user),
+
 ):
 
     """
@@ -712,6 +874,7 @@ async def update_user_details(
     """
 
     existing_user = await _find_user(user_id=user_id, user_email=str(user_email) if user_email else None)
+    _authorize_self_only(current_principal, existing_user)
 
     update_fields = user_update.model_dump(exclude_unset=True)
     if "password" in update_fields:
@@ -827,6 +990,8 @@ async def get_user_details(
     user_id: Optional[str] = Query(None, description="ID of the user to fetch"),
     user_email: Optional[EmailStr] = Query(None, description="Email of the user to fetch"),
     keycloak_sub: Optional[str] = Query(None, description="Keycloak user id to fetch"),
+    current_principal: dict[str, Any] = Depends(verify_access_token_and_resolve_user),
+
 ):
     try:
         user = await _find_user(
@@ -834,6 +999,7 @@ async def get_user_details(
             user_email=str(user_email) if user_email else None,
             keycloak_sub=keycloak_sub,
         )
+        _authorize_self_or_admin(current_principal, user)
         return _mask_password(user)
     except HTTPException:
         raise
@@ -844,8 +1010,11 @@ async def get_user_details(
 
 
 @app.get("/user/list/", response_model=list[User], summary="List users")
-async def list_users():
+async def list_users(
+    current_principal: dict[str, Any] = Depends(verify_access_token_and_resolve_user),
+):
     try:
+        _require_admin(current_principal)
         users = []
         cursor = users_collection.find().sort("username_email", 1)
         async for user in cursor:
@@ -934,8 +1103,11 @@ async def check_username(
 
 
 @app.delete("/user/delete/{user_id}")
-async def delete_user(user_id: str, master_password_input: str):
-    await verify_master(master_password_input)
+async def delete_user(
+    user_id: str,
+    current_principal: dict[str, Any] = Depends(verify_access_token_and_resolve_user),
+):
+    _require_admin(current_principal)
     try:
         object_id = ObjectId(user_id)
     except InvalidId as exc:

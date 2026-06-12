@@ -149,9 +149,8 @@ def resolve_or_create_local_user_sync(
     username = (claims.get("preferred_username") or "").strip() or None
     if not email:
         raise ValueError("Keycloak token missing email")
-    print({"keycloak_sub": keycloak_sub})
-    user = users_collection.find_one({"keycloak_sub": keycloak_sub})
 
+    user = users_collection.find_one({"keycloak_sub": keycloak_sub})
     if user is None:
         user = users_collection.find_one({"username_email": email})
     if user is None and username:

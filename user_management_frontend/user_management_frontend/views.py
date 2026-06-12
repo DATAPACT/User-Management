@@ -340,111 +340,6 @@ def _infer_phone_region_name(phone: str) -> str:
     return ""
 
 
-def register(request):
-    if request.method == "POST":
-        print("Registering user...")
-        form_data = _registration_form_data(request.POST)
-        first_name = form_data["first_name"]
-        last_name = form_data["last_name"]
-        user_name = _build_full_name(first_name, last_name)
-        email = form_data["email"]
-        username = form_data["username"]
-        password = request.POST.get("password")
-        confirm_password = request.POST.get("confirmpassword")
-        user_type = form_data["user_type"]  # Default to 'consumer' if not provided
-        organization = form_data["organization"]
-        # distinctive_title = request.POST.get("distinctive_title")
-        incorporation = form_data["incorporation"]
-        address = form_data["address"]
-        vat_no = form_data["vat_no"]
-        position_title = form_data["position_title"]
-        phone_region = form_data["phone_region"]
-        phone = form_data["phone"]
-
-        data = {
-            "first_name": first_name,
-            "last_name": last_name,
-            "name": user_name,
-            "username": username,
-            "type": user_type,
-            "username_email": email,
-            "password": password,
-            "organization": organization,
-            "incorporation": incorporation,
-            "address": address,
-            "vat_no": vat_no,
-            "position_title": position_title,
-            "phone": phone,
-        }
-
-        master_password = os.getenv("MASTER_PASSWORD", "master_password")
-
-        if not first_name:
-            messages.error(request, "First name cannot be empty.")
-            return render(request, "sign-up.html", _registration_page_context(form_data))
-
-        if not last_name:
-            messages.error(request, "Last name cannot be empty.")
-            return render(request, "sign-up.html", _registration_page_context(form_data))
-
-        if not username:
-            messages.error(request, "Username cannot be empty.")
-            return render(request, "sign-up.html", _registration_page_context(form_data))
-
-        if password != confirm_password:
-            messages.error(request, "The confirmation password does not match.")
-            return render(request, "sign-up.html", _registration_page_context(form_data))
-
-        email_exists = _check_user_email_exists(email)
-        if email_exists is True:
-            messages.error(request, "Email already registered, please use another email.")
-            return render(request, "sign-up.html", _registration_page_context(form_data))
-
-        username_exists = _check_username_exists(username)
-        if username_exists is True:
-            messages.error(request, "Username already registered, please use another username.")
-            return render(request, "sign-up.html", _registration_page_context(form_data))
-
-        is_strong, message = is_strong_password(password)
-
-        if not is_strong:
-            messages.error(request, message)
-            return render(request, "sign-up.html", _registration_page_context(form_data))
-
-        phone_is_valid, phone_message, normalized_phone = _check_valid_phone(phone, phone_region)
-        if not phone_is_valid:
-            messages.error(request, phone_message)
-            return render(request, "sign-up.html", _registration_page_context(form_data))
-        data["phone"] = normalized_phone or ""
-
-        # user registration is handled by user-management-service. Keycloak is the authentication authority 
-        endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/register/"
-
-        try:
-            response = requests.post(f"{endpoint_url}?master_password_input={master_password}",
-                                     json=data)
-            if response.status_code in [200, 201]:
-                response_data = response.json()
-                print(f"User registered successfully: {response_data}")
-                messages.success(request, "Account created successfully! Please log in.")
-                return redirect("login")
-            else:
-                # Handle errors returned from FastAPI
-                try:
-                    error_message = response.json().get("detail", "Registration failed.")
-                except ValueError:
-                    error_message = "Unexpected response from the registration service."
-
-                messages.error(request, error_message)
-                return render(request, "sign-up.html", _registration_page_context(form_data))
-
-        except requests.RequestException:
-            messages.error(request, "Registration service is unavailable. Please try again later.")
-            return render(request, "sign-up.html", _registration_page_context(form_data))
-
-    return render(request, "sign-up.html", _registration_page_context())
-
-
 
 
 MANAGE_ACCOUNT_FORM_FIELDS = [
@@ -508,6 +403,149 @@ def _build_manage_account_context(user_details: Dict[str, Any], form_data=None):
         "is_admin_view": False,
     }
 
+
+
+
+
+def admin_delete_user(request, user_id: str):
+    if request.method != "POST":
+        return redirect("admin_manage")
+
+    if not _is_admin_session(request):
+        messages.error(request, "Admin access is required.")
+        return redirect("login")
+
+    session_user_id = _get_logged_in_user_id(request)
+    if str(user_id) == str(session_user_id):
+        messages.error(request, "You cannot delete the currently logged-in admin user.")
+        return redirect("admin_manage")
+
+    try:
+        _delete_user(user_id)
+        messages.success(request, "User deleted successfully.")
+    except requests.HTTPError as exc:
+        try:
+            detail = exc.response.json().get("detail", "Could not delete the user.")
+        except ValueError:
+            detail = "Could not delete the user."
+        messages.error(request, detail)
+    except requests.RequestException:
+        messages.error(request, "Delete service is unavailable.")
+
+    return redirect("admin_manage")
+
+
+def _check_valid_email(email):
+
+    email = (email or "").strip()
+
+    if not email:
+        return False, "Email is required."
+
+    if email.count("@") != 1:
+        return False, "Email must contain exactly one '@' symbol."
+
+    local_part, domain_part = email.split("@", 1)
+
+    if not local_part:
+        return False, "Email must include text before '@'."
+
+    if not domain_part:
+        return False, "Email must include a domain after '@'."
+
+    if "." not in domain_part:
+        return False, "Email domain must include a '.' and a valid suffix."
+
+    domain_name, _, tld = domain_part.rpartition(".")
+    if not domain_name:
+        return False, "Email domain name is missing before the final '.'."
+
+    if len(tld) < 2:
+        return False, "Email domain suffix must contain at least 2 letters."
+
+    EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.I)
+    valid = EMAIL_PATTERN.fullmatch(email) is not None
+    if not valid:
+        return False, "Email contains invalid characters or format."
+
+    return True, "Email is valid."
+
+def check_user_email(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    email = (request.GET.get("email") or "").strip()
+    if not email:
+        return JsonResponse({"error": "Missing email"}, status=400)
+
+
+    is_valid, megs = _check_valid_email(email)
+    if not is_valid:
+        return JsonResponse(
+            {"valid": False, "detail": megs},
+            status=400,
+        )
+
+    exists = _check_user_email_exists(email)
+    if exists is None:
+        return JsonResponse(
+            {"error": "Email availability service is unavailable."},
+            status=503,
+        )
+
+    return JsonResponse({"exists": exists})
+
+
+def check_username(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    username = (request.GET.get("username") or "").strip()
+    if not username:
+        return JsonResponse({"error": "Missing username"}, status=400)
+
+    exists = _check_username_exists(username)
+    if exists is None:
+        return JsonResponse(
+            {"error": "Username availability service is unavailable."},
+            status=503,
+        )
+
+    return JsonResponse({"exists": exists})
+
+def check_strong_password(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    password = (request.GET.get("password") or "").strip()
+
+    if not password:
+        return JsonResponse({"error": "Missing password"}, status=400)
+
+    is_strong, megs  = is_strong_password(password)
+
+    if not is_strong:
+        return JsonResponse({"valid": False, "detail": megs})
+
+    return JsonResponse({"valid": True, "detail": megs})
+
+
+def check_phone_number(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    # get phone number and region
+    phone = (request.GET.get("phone") or "").strip()
+    phone_region = (request.GET.get("phone_region") or "").strip()
+
+    if not phone:
+        return JsonResponse({"valid": True, "detail": ""})
+
+    # verify the phone number
+    is_valid, detail, normalized_phone = _check_valid_phone(phone, phone_region)
+    if not is_valid:
+        return JsonResponse({"valid": False, "detail": detail}, status=400)
+
+    return JsonResponse({"valid": True, "detail": detail, "normalized_phone": normalized_phone})
 
 def manage_account(request):
     session_user_id = _get_logged_in_user_id(request)
@@ -663,153 +701,6 @@ def admin_manage(request):
         {"is_sso": True, "is_admin_view": True, "users": normalized_users, "admin_user_name": admin_user_name},
     )
 
-
-def admin_delete_user(request, user_id: str):
-    if request.method != "POST":
-        return redirect("admin_manage")
-
-    if not _is_admin_session(request):
-        messages.error(request, "Admin access is required.")
-        return redirect("login")
-
-    session_user_id = _get_logged_in_user_id(request)
-    if str(user_id) == str(session_user_id):
-        messages.error(request, "You cannot delete the currently logged-in admin user.")
-        return redirect("admin_manage")
-
-    try:
-        _delete_user(user_id)
-        messages.success(request, "User deleted successfully.")
-    except requests.HTTPError as exc:
-        try:
-            detail = exc.response.json().get("detail", "Could not delete the user.")
-        except ValueError:
-            detail = "Could not delete the user."
-        messages.error(request, detail)
-    except requests.RequestException:
-        messages.error(request, "Delete service is unavailable.")
-
-    return redirect("admin_manage")
-
-
-def _check_valid_email(email):
-
-    email = (email or "").strip()
-
-    if not email:
-        return False, "Email is required."
-
-    if email.count("@") != 1:
-        return False, "Email must contain exactly one '@' symbol."
-
-    local_part, domain_part = email.split("@", 1)
-
-    if not local_part:
-        return False, "Email must include text before '@'."
-
-    if not domain_part:
-        return False, "Email must include a domain after '@'."
-
-    if "." not in domain_part:
-        return False, "Email domain must include a '.' and a valid suffix."
-
-    domain_name, _, tld = domain_part.rpartition(".")
-    if not domain_name:
-        return False, "Email domain name is missing before the final '.'."
-
-    if len(tld) < 2:
-        return False, "Email domain suffix must contain at least 2 letters."
-
-    EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.I)
-    valid = EMAIL_PATTERN.fullmatch(email) is not None
-    if not valid:
-        return False, "Email contains invalid characters or format."
-
-    return True, "Email is valid."
-
-def check_user_email(request):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    email = (request.GET.get("email") or "").strip()
-    if not email:
-        return JsonResponse({"error": "Missing email"}, status=400)
-
-
-    is_valid, megs = _check_valid_email(email)
-    if not is_valid:
-        return JsonResponse(
-            {"valid": False, "detail": megs},
-            status=400,
-        )
-
-    exists = _check_user_email_exists(email)
-    if exists is None:
-        return JsonResponse(
-            {"error": "Email availability service is unavailable."},
-            status=503,
-        )
-
-    return JsonResponse({"exists": exists})
-
-
-def check_username(request):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    username = (request.GET.get("username") or "").strip()
-    if not username:
-        return JsonResponse({"error": "Missing username"}, status=400)
-
-    exists = _check_username_exists(username)
-    if exists is None:
-        return JsonResponse(
-            {"error": "Username availability service is unavailable."},
-            status=503,
-        )
-
-    return JsonResponse({"exists": exists})
-
-def check_strong_password(request):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-    password = (request.GET.get("password") or "").strip()
-
-    if not password:
-        return JsonResponse({"error": "Missing password"}, status=400)
-
-    is_strong, megs  = is_strong_password(password)
-
-    if not is_strong:
-        return JsonResponse({"valid": False, "detail": megs})
-
-    return JsonResponse({"valid": True, "detail": megs})
-
-
-def check_phone_number(request):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    # get phone number and region
-    phone = (request.GET.get("phone") or "").strip()
-    phone_region = (request.GET.get("phone_region") or "").strip()
-
-    if not phone:
-        return JsonResponse({"valid": True, "detail": ""})
-
-    # verify the phone number
-    is_valid, detail, normalized_phone = _check_valid_phone(phone, phone_region)
-    if not is_valid:
-        return JsonResponse({"valid": False, "detail": detail}, status=400)
-
-    return JsonResponse({"valid": True, "detail": detail, "normalized_phone": normalized_phone})
-
-
-def logout_view(request):
-    request.session.flush()
-    return redirect("login")
-
-
 def reset_password_view(request):
     user_id = _get_logged_in_user_id(request)
     is_logged_in = bool(user_id)
@@ -915,6 +806,109 @@ def reset_password_view(request):
         {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
     )
 
+def register(request):
+    if request.method == "POST":
+        print("Registering user...")
+        form_data = _registration_form_data(request.POST)
+        first_name = form_data["first_name"]
+        last_name = form_data["last_name"]
+        user_name = _build_full_name(first_name, last_name)
+        email = form_data["email"]
+        username = form_data["username"]
+        password = request.POST.get("password")
+        confirm_password = request.POST.get("confirmpassword")
+        user_type = form_data["user_type"]  # Default to 'consumer' if not provided
+        organization = form_data["organization"]
+        # distinctive_title = request.POST.get("distinctive_title")
+        incorporation = form_data["incorporation"]
+        address = form_data["address"]
+        vat_no = form_data["vat_no"]
+        position_title = form_data["position_title"]
+        phone_region = form_data["phone_region"]
+        phone = form_data["phone"]
+
+        data = {
+            "first_name": first_name,
+            "last_name": last_name,
+            "name": user_name,
+            "username": username,
+            "type": user_type,
+            "username_email": email,
+            "password": password,
+            "organization": organization,
+            "incorporation": incorporation,
+            "address": address,
+            "vat_no": vat_no,
+            "position_title": position_title,
+            "phone": phone,
+        }
+
+        master_password = os.getenv("MASTER_PASSWORD", "master_password")
+
+        if not first_name:
+            messages.error(request, "First name cannot be empty.")
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+
+        if not last_name:
+            messages.error(request, "Last name cannot be empty.")
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+
+        if not username:
+            messages.error(request, "Username cannot be empty.")
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+
+        if password != confirm_password:
+            messages.error(request, "The confirmation password does not match.")
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+
+        email_exists = _check_user_email_exists(email)
+        if email_exists is True:
+            messages.error(request, "Email already registered, please use another email.")
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+
+        username_exists = _check_username_exists(username)
+        if username_exists is True:
+            messages.error(request, "Username already registered, please use another username.")
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+
+        is_strong, message = is_strong_password(password)
+
+        if not is_strong:
+            messages.error(request, message)
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+
+        phone_is_valid, phone_message, normalized_phone = _check_valid_phone(phone, phone_region)
+        if not phone_is_valid:
+            messages.error(request, phone_message)
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+        data["phone"] = normalized_phone or ""
+
+        # user registration is handled by user-management-service. Keycloak is the authentication authority
+        endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/register/"
+
+        try:
+            response = requests.post(f"{endpoint_url}?master_password_input={master_password}",
+                                     json=data)
+            if response.status_code in [200, 201]:
+                response_data = response.json()
+                print(f"User registered successfully: {response_data}")
+                messages.success(request, "Account created successfully! Please log in.")
+                return redirect("login")
+            else:
+                # Handle errors returned from FastAPI
+                try:
+                    error_message = response.json().get("detail", "Registration failed.")
+                except ValueError:
+                    error_message = "Unexpected response from the registration service."
+
+                messages.error(request, error_message)
+                return render(request, "sign-up.html", _registration_page_context(form_data))
+
+        except requests.RequestException:
+            messages.error(request, "Registration service is unavailable. Please try again later.")
+            return render(request, "sign-up.html", _registration_page_context(form_data))
+
+    return render(request, "sign-up.html", _registration_page_context())
 
 def login(request):
     if request.method == "POST":
@@ -1004,3 +998,7 @@ def login(request):
 
     # For GET requests, just render login page
     return render(request, "login.html")
+
+def logout_view(request):
+    request.session.flush()
+    return redirect("login")

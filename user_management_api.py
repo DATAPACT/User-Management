@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, EmailStr, field_validator, model_validato
 
 logging.basicConfig(
     level=logging.INFO,
+
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -39,12 +40,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Load MongDB env
 MONGO_USER = os.getenv("MONGO_USER")
 MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
 MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
 MONGO_PORT = os.getenv("MONGO_PORT")
 MONGO_DB = os.getenv("MONGO_DB", "dips_services")
 
+# Load KEYCLOAK env
 KEYCLOAK_BASE_URL = (os.getenv("KEYCLOAK_BASE_URL") or "").rstrip("/")
 KEYCLOAK_REALM = (os.getenv("KEYCLOAK_REALM") or "").strip()
 KEYCLOAK_ADMIN_REALM = (os.getenv("KEYCLOAK_ADMIN_REALM") or "master").strip()
@@ -53,6 +56,7 @@ KEYCLOAK_ADMIN_CLIENT_SECRET = (os.getenv("KEYCLOAK_ADMIN_CLIENT_SECRET") or "")
 KEYCLOAK_ADMIN_USERNAME = (os.getenv("KEYCLOAK_ADMIN_USERNAME") or "").strip()
 KEYCLOAK_ADMIN_PASSWORD = (os.getenv("KEYCLOAK_ADMIN_PASSWORD") or "").strip()
 
+# MongoDB url
 if MONGO_PORT:
     MONGO_PORT = int(MONGO_PORT)
     MONGO_URI = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}"
@@ -62,6 +66,7 @@ else:
         "?retryWrites=true&w=majority&appName=Cluster0"
     )
 
+# query and update the users collection
 client = AsyncIOMotorClient(MONGO_URI)
 db = client[MONGO_DB]
 users_collection = db.users
@@ -537,35 +542,35 @@ async def is_strong_password(password: str) -> tuple[bool, str]:
     return True, "Password is strong."
 
 
-async def verify_master(master_password_input: str) -> bool:
-    admin_user = await users_collection.find_one({"is_admin": True})
-
-    if admin_user is not None:
-        master_password = admin_user.get("password")
-    else:
-        raw_master_password = os.getenv("MASTER_PASSWORD")
-        if not raw_master_password:
-            raise HTTPException(
-                status_code=500, detail="MASTER_PASSWORD environment variable not set"
-            )
-
-        master_password = get_password_hash(raw_master_password)
-        first_admin = {
-            "username_email": "admin@example.com",
-            "password": master_password,
-            "is_admin": True,
-        }
-        await users_collection.insert_one(first_admin)
-
-    if not verify_password(master_password_input, master_password):
-        raise HTTPException(status_code=403, detail="Invalid master password")
-
-    return True
+# async def verify_master(master_password_input: str) -> bool:
+#     admin_user = await users_collection.find_one({"is_admin": True})
+#
+#     if admin_user is not None:
+#         master_password = admin_user.get("password")
+#     else:
+#         raw_master_password = os.getenv("MASTER_PASSWORD")
+#         if not raw_master_password:
+#             raise HTTPException(
+#                 status_code=500, detail="MASTER_PASSWORD environment variable not set"
+#             )
+#
+#         master_password = get_password_hash(raw_master_password)
+#         first_admin = {
+#             "username_email": "admin@example.com",
+#             "password": master_password,
+#             "is_admin": True,
+#         }
+#         await users_collection.insert_one(first_admin)
+#
+#     if not verify_password(master_password_input, master_password):
+#         raise HTTPException(status_code=403, detail="Invalid master password")
+#
+#     return True
 
 
 @app.post("/user/register", response_model=User)
-async def register_user(user: User, master_password_input: str):
-    await verify_master(master_password_input)
+async def register_user(user: User):
+    # await verify_master(master_password_input)
 
     """
         1. Validate input locally.
@@ -633,7 +638,7 @@ async def register_user(user: User, master_password_input: str):
 
 
 @app.put("/user/update-password", response_model=User)
-async def update_user_password(master_password_input: str, user_update: UserUpdatePassword):
+async def update_user_password(user_update: UserUpdatePassword):
 
     """
     Request Body, example:
@@ -646,7 +651,7 @@ async def update_user_password(master_password_input: str, user_update: UserUpda
 
     """
 
-    await verify_master(master_password_input)
+    # await verify_master(master_password_input)
 
     existing_user = await _find_user_for_password_update(
         user_id=user_update.user_id,
@@ -934,8 +939,8 @@ async def check_username(
 
 
 @app.delete("/user/delete/{user_id}")
-async def delete_user(user_id: str, master_password_input: str):
-    await verify_master(master_password_input)
+async def delete_user(user_id: str):
+    # await verify_master(master_password_input)
     try:
         object_id = ObjectId(user_id)
     except InvalidId as exc:

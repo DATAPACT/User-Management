@@ -66,7 +66,6 @@ else:
         "?retryWrites=true&w=majority&appName=Cluster0"
     )
 
-# query and update the users collection
 client = AsyncIOMotorClient(MONGO_URI)
 db = client[MONGO_DB]
 users_collection = db.users
@@ -542,34 +541,34 @@ async def is_strong_password(password: str) -> tuple[bool, str]:
     return True, "Password is strong."
 
 
-# async def verify_master(master_password_input: str) -> bool:
-#     admin_user = await users_collection.find_one({"is_admin": True})
-#
-#     if admin_user is not None:
-#         master_password = admin_user.get("password")
-#     else:
-#         raw_master_password = os.getenv("MASTER_PASSWORD")
-#         if not raw_master_password:
-#             raise HTTPException(
-#                 status_code=500, detail="MASTER_PASSWORD environment variable not set"
-#             )
-#
-#         master_password = get_password_hash(raw_master_password)
-#         first_admin = {
-#             "username_email": "admin@example.com",
-#             "password": master_password,
-#             "is_admin": True,
-#         }
-#         await users_collection.insert_one(first_admin)
-#
-#     if not verify_password(master_password_input, master_password):
-#         raise HTTPException(status_code=403, detail="Invalid master password")
-#
-#     return True
+async def verify_master(master_password_input: str) -> bool:
+    admin_user = await users_collection.find_one({"is_admin": True})
+
+    if admin_user is not None:
+        master_password = admin_user.get("password")
+    else:
+        raw_master_password = os.getenv("MASTER_PASSWORD")
+        if not raw_master_password:
+            raise HTTPException(
+                status_code=500, detail="MASTER_PASSWORD environment variable not set"
+            )
+
+        master_password = get_password_hash(raw_master_password)
+        first_admin = {
+            "username_email": "admin@example.com",
+            "password": master_password,
+            "is_admin": True,
+        }
+        await users_collection.insert_one(first_admin)
+
+    if not verify_password(master_password_input, master_password):
+        raise HTTPException(status_code=403, detail="Invalid master password")
+
+    return True
 
 
 @app.post("/user/register", response_model=User)
-async def register_user(user: User):
+async def register_user(user: User, master_password_input: str):
     # await verify_master(master_password_input)
 
     """
@@ -638,7 +637,7 @@ async def register_user(user: User):
 
 
 @app.put("/user/update-password", response_model=User)
-async def update_user_password(user_update: UserUpdatePassword):
+async def update_user_password(master_password_input: str, user_update: UserUpdatePassword):
 
     """
     Request Body, example:
@@ -939,7 +938,7 @@ async def check_username(
 
 
 @app.delete("/user/delete/{user_id}")
-async def delete_user(user_id: str):
+async def delete_user(user_id: str, master_password_input: str):
     # await verify_master(master_password_input)
     try:
         object_id = ObjectId(user_id)

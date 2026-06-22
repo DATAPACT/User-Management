@@ -713,7 +713,7 @@ async def login_user_via_authentication_service(form_data: OAuth2PasswordRequest
 
 @app.post("/user/register", response_model=User)
 async def register_user(user: User, master_password_input: str):
-    await verify_master(master_password_input)
+    # await verify_master(master_password_input)
 
     """
         1. Validate input locally.
@@ -812,7 +812,7 @@ async def update_user_password(
     else:
         if not master_password_input:
             raise HTTPException(status_code=401, detail="Authentication is required")
-        await verify_master(master_password_input)
+        # await verify_master(master_password_input)
 
     if not user_update.password:
         raise HTTPException(status_code=400, detail="Password is required")

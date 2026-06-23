@@ -119,48 +119,64 @@ def _get_logged_in_user_id(request) -> Optional[str]:
     return str(user_id) if user_id else None
 
 
-def _get_user_details(user_id: str) -> Dict[str, Any]:
+def _get_access_token(request) -> Optional[str]:
+    token = request.session.get("access_token")
+    return str(token) if token else None
+
+
+def _auth_headers(request) -> Dict[str, str]:
+    token = _get_access_token(request)
+    if not token:
+        raise ValueError("Missing access token in session")
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _get_user_details(request, user_id: str) -> Dict[str, Any]:
     endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/details/"
-    response = requests.get(endpoint_url, params={"user_id": user_id}, timeout=10)
+    response = requests.get(endpoint_url, params={"user_id": user_id}, headers=_auth_headers(request), timeout=10)
     response.raise_for_status()
     return response.json()
 
 
-def _update_user_details(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+def _update_user_details(request, user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/update-details"
-    response = requests.put(endpoint_url, params={"user_id": user_id}, json=payload, timeout=15)
-    response.raise_for_status()
-    return response.json()
-
-
-def _update_user_password(payload: Dict[str, Any]) -> Dict[str, Any]:
-    endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/update-password"
-    master_password = os.getenv("MASTER_PASSWORD", "master_password")
     response = requests.put(
         endpoint_url,
-        params={"master_password_input": master_password},
+        params={"user_id": user_id},
         json=payload,
+        headers=_auth_headers(request),
         timeout=15,
     )
     response.raise_for_status()
     return response.json()
 
 
-def _list_users() -> list[Dict[str, Any]]:
+def _update_user_password(request, payload: Dict[str, Any]) -> Dict[str, Any]:
+    endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/update-password"
+    headers = None
+    params = None
+    token = _get_access_token(request)
+    if token:
+        headers = {"Authorization": f"Bearer {token}"}
+    else:
+        master_password = os.getenv("MASTER_PASSWORD", "master_password")
+        params = {"master_password_input": master_password}
+
+    response = requests.put(endpoint_url, params=params, json=payload, headers=headers, timeout=15)
+    response.raise_for_status()
+    return response.json()
+
+
+def _list_users(request) -> list[Dict[str, Any]]:
     endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/list/"
-    response = requests.get(endpoint_url, timeout=15)
+    response = requests.get(endpoint_url, headers=_auth_headers(request), timeout=15)
     response.raise_for_status()
     return response.json()
 
 
-def _delete_user(user_id: str) -> Dict[str, Any]:
+def _delete_user(request, user_id: str) -> Dict[str, Any]:
     endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/delete/{user_id}"
-    master_password = os.getenv("MASTER_PASSWORD", "master_password")
-    response = requests.delete(
-        endpoint_url,
-        params={"master_password_input": master_password},
-        timeout=15,
-    )
+    response = requests.delete(endpoint_url, headers=_auth_headers(request), timeout=15)
     response.raise_for_status()
     return response.json()
 
@@ -421,7 +437,7 @@ def admin_delete_user(request, user_id: str):
         return redirect("admin_manage")
 
     try:
-        _delete_user(user_id)
+        _delete_user(request, user_id)
         messages.success(request, "User deleted successfully.")
     except requests.HTTPError as exc:
         try:
@@ -562,8 +578,8 @@ def manage_account(request):
         return redirect("manage_account")
 
     try:
-        user_details = _get_user_details(target_user_id)
-    except requests.RequestException:
+        user_details = _get_user_details(request, target_user_id)
+    except (requests.RequestException, ValueError):
         messages.error(request, "Could not load your account details right now.")
         return redirect("admin_manage" if is_admin else "login")
 
@@ -640,7 +656,7 @@ def manage_account(request):
         }
 
         try:
-            updated_user = _update_user_details(session_user_id, payload)
+            updated_user = _update_user_details(request, session_user_id, payload)
         except requests.HTTPError as exc:
             try:
                 detail = exc.response.json().get("detail", "Could not update your profile.")
@@ -648,7 +664,7 @@ def manage_account(request):
                 detail = "Could not update your profile."
             messages.error(request, detail)
             return render_manage_account(user_details, form_data)
-        except requests.RequestException:
+        except (requests.RequestException, ValueError):
             messages.error(request, "Profile update service is unavailable.")
             return render_manage_account(user_details, form_data)
 
@@ -667,19 +683,19 @@ def admin_manage(request):
     admin_user_name = "Admin"
     if session_user_id:
         try:
-            admin_user = _get_user_details(session_user_id)
+            admin_user = _get_user_details(request, session_user_id)
             admin_user_name = (
                 _to_form_string(admin_user.get("name"))
                 or _build_full_name(admin_user.get("first_name"), admin_user.get("last_name"))
                 or _to_form_string(admin_user.get("username"))
                 or "Admin"
             )
-        except requests.RequestException:
+        except (requests.RequestException, ValueError):
             admin_user_name = "Admin"
 
     try:
-        users = _list_users()
-    except requests.RequestException:
+        users = _list_users(request)
+    except (requests.RequestException, ValueError):
         messages.error(request, "Could not load the user list right now.")
         return render(
             request,
@@ -712,8 +728,8 @@ def reset_password_view(request):
 
     if is_logged_in:
         try:
-            current_user = _get_user_details(user_id)
-        except requests.RequestException:
+            current_user = _get_user_details(request, user_id)
+        except (requests.RequestException, ValueError):
             messages.error(request, "Could not load your account details right now.")
             return redirect("manage_account")
 
@@ -772,7 +788,7 @@ def reset_password_view(request):
             payload["username_email"] = email
 
         try:
-            _update_user_password(payload)
+            _update_user_password(request, payload)
         except requests.HTTPError as exc:
             try:
                 detail = exc.response.json().get("detail", "Could not reset your password.")
@@ -784,7 +800,7 @@ def reset_password_view(request):
                 "reset-password.html",
                 {"is_sso": is_logged_in, "form_data": form_data, "current_user": current_user, "reset_success": reset_success},
             )
-        except requests.RequestException:
+        except (requests.RequestException, ValueError):
             messages.error(request, "Password reset service is unavailable.")
             return render(
                 request,

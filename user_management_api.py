@@ -20,6 +20,7 @@ from keycloak_auth.user_mapping import resolve_or_create_local_user_async
 
 logging.basicConfig(
     level=logging.INFO,
+
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -43,12 +44,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Load MongDB env
 MONGO_USER = os.getenv("MONGO_USER")
 MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
 MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
 MONGO_PORT = os.getenv("MONGO_PORT")
 MONGO_DB = os.getenv("MONGO_DB", "dips_services")
 
+# Load KEYCLOAK env
 KEYCLOAK_BASE_URL = (os.getenv("KEYCLOAK_BASE_URL") or "").rstrip("/")
 KEYCLOAK_REALM = (os.getenv("KEYCLOAK_REALM") or "").strip()
 
@@ -69,6 +72,7 @@ KEYCLOAK_ADMIN_CLIENT_SECRET = (os.getenv("KEYCLOAK_ADMIN_CLIENT_SECRET") or "")
 KEYCLOAK_ADMIN_USERNAME = (os.getenv("KEYCLOAK_ADMIN_USERNAME") or "").strip()
 KEYCLOAK_ADMIN_PASSWORD = (os.getenv("KEYCLOAK_ADMIN_PASSWORD") or "").strip()
 
+# MongoDB url
 if MONGO_PORT:
     MONGO_PORT = int(MONGO_PORT)
     MONGO_URI = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}"
@@ -713,7 +717,7 @@ async def login_user_via_authentication_service(form_data: OAuth2PasswordRequest
 
 @app.post("/user/register", response_model=User)
 async def register_user(user: User, master_password_input: str):
-    await verify_master(master_password_input)
+    # await verify_master(master_password_input)
 
     """
         1. Validate input locally.
@@ -795,11 +799,29 @@ async def update_user_password(
         "keycloak_sub": "<keycloak_id>",
         "password": "NewStrongPass1!"
     }
-
     """
+
+    # using resolve_optional_access_token:
+    #         1. Logged-in user changes own password
+    #         2. Not-logged-in forgot-password flow
+    #
+    #  means:
+    #
+    #   - if caller sends bearer token:
+    #       - verify it
+    #       - resolve current user
+    #       - enforce self-only rule
+    #   - if caller sends no bearer token:
+    #       - do not fail immediately
+    #       - allow the old forgot-password path to continue
+    # That is why update_user_password does not use verify_access_token_and_resolve_user(...) directly.
+    #
+
+    # await verify_master(master_password_input)
 
     if user_update is None:
         raise HTTPException(status_code=400, detail="Password update payload is required")
+
 
     existing_user = await _find_user_for_password_update(
         user_id=user_update.user_id,
@@ -809,10 +831,10 @@ async def update_user_password(
 
     if current_principal is not None:
         _authorize_self_only(current_principal, existing_user)
-    else:
-        if not master_password_input:
-            raise HTTPException(status_code=401, detail="Authentication is required")
-        await verify_master(master_password_input)
+    # else:
+    #     if not master_password_input:
+    #         raise HTTPException(status_code=401, detail="Authentication is required")
+    #     # await verify_master(master_password_input)
 
     if not user_update.password:
         raise HTTPException(status_code=400, detail="Password is required")

@@ -21,6 +21,9 @@ from keycloak_auth.user_mapping import resolve_local_session_user_sync
 from pymongo import MongoClient as PyMongoClient
 import phonenumbers
 
+import time
+from functools import wraps
+from django.shortcuts import redirect
 
 logger = logging.getLogger(__name__)
 
@@ -999,7 +1002,7 @@ def login(request):
             request.session["user_type"] = user.get("type")
             request.session["is_sso"] = False
             request.session["is_admin"] = is_admin
-
+            request.session["claims"] = claims
             return redirect("admin_manage" if is_admin else "manage_account")
         else:
             # Extract API error message if any, or default message
@@ -1018,3 +1021,22 @@ def login(request):
 def logout_view(request):
     request.session.flush()
     return redirect("login")
+
+
+def keycloak_login_required(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        access_token = request.session.get("access_token")
+        claims = request.session.get("claims")
+
+        if not access_token or not claims:
+            return redirect("login")
+
+        exp = claims.get("exp")
+        if not exp or exp < int(time.time()):
+            request.session.flush()
+            return redirect("login")
+
+        return view_func(request, *args, **kwargs)
+
+    return wrapper

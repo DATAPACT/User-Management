@@ -799,8 +799,23 @@ async def update_user_password(
         "keycloak_sub": "<keycloak_id>",
         "password": "NewStrongPass1!"
     }
-
     """
+
+    # using resolve_optional_access_token:
+    #         1. Logged-in user changes own password
+    #         2. Not-logged-in forgot-password flow
+    #
+    #  means:
+    #
+    #   - if caller sends bearer token:
+    #       - verify it
+    #       - resolve current user
+    #       - enforce self-only rule
+    #   - if caller sends no bearer token:
+    #       - do not fail immediately
+    #       - allow the old forgot-password path to continue
+    # That is why update_user_password does not use verify_access_token_and_resolve_user(...) directly.
+    #
 
     # await verify_master(master_password_input)
 

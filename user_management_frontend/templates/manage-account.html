@@ -71,12 +71,61 @@
   }
 
   .account-card {
-    margin-top: 30px;
     background: #fff;
     border-radius: 24px;
     border: 1px solid rgba(148, 163, 184, 0.2);
     box-shadow: 0 26px 60px rgba(15, 23, 42, 0.08);
     padding: 32px;
+  }
+
+  .account-layout {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .account-sidebar {
+    background: #fff;
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 26px 60px rgba(15, 23, 42, 0.08);
+    padding: 20px;
+  }
+
+  .account-sidebar h3 {
+    margin: 0 0 16px;
+    color: #1f2a44;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .account-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .account-sidebar-link {
+    display: block;
+    padding: 12px 14px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #344054;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+
+  .account-sidebar-link:hover {
+    background: #f4f7ff;
+    color: #4154f1;
+  }
+
+  .account-sidebar-link.is-active {
+    background: #eef2ff;
+    color: #4154f1;
+    border-color: rgba(65, 84, 241, 0.18);
   }
 
   .account-card-header {
@@ -156,6 +205,10 @@
       align-items: stretch;
     }
 
+    .account-layout {
+      grid-template-columns: 1fr;
+    }
+
     .account-actions {
       flex-direction: column;
     }
@@ -202,7 +255,16 @@
       {% endif %}
     </div>
 
-    <div class="account-card">
+    <div class="account-layout">
+      <aside class="account-sidebar">
+        <h3>Toolbar</h3>
+        <nav class="account-sidebar-nav" aria-label="Account navigation">
+          <a class="account-sidebar-link {% if sidebar_active == 'profile' %}is-active{% endif %}" href="{% url 'manage_account' %}">My Profile</a>
+          <a class="account-sidebar-link {% if sidebar_active == 'search' %}is-active{% endif %}" href="{% url 'search_user' %}">Search User</a>
+        </nav>
+      </aside>
+
+      <div class="account-card">
       <div class="account-card-header">
         <h3>Your Information</h3>
         {% if read_only_mode %}
@@ -217,6 +279,10 @@
 
         {% csrf_token %}
         <div class="row g-4">
+          <div class="col-md-6">
+            <label for="user_id" class="form-label">User-ID</label>
+            <input type="text" class="form-control" id="user_id" name="user_id" value="{{ form_data.user_id|default:'' }}" disabled>
+          </div>
           <div class="col-md-6">
             <label for="first_name" class="form-label">First name</label>
             <input type="text" class="form-control editable-field" id="first_name" name="first_name" value="{{ form_data.first_name|default:'' }}" disabled>
@@ -297,6 +363,7 @@
         </div>
         {% endif %}
       </form>
+      </div>
     </div>
   </div>
 </main>

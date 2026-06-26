@@ -31,6 +31,55 @@
     padding: 32px;
   }
 
+  .admin-layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .admin-sidebar {
+    background: #fff;
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 26px 60px rgba(15, 23, 42, 0.08);
+    padding: 20px;
+  }
+
+  .admin-sidebar h3 {
+    margin: 0 0 16px;
+    color: #1f2a44;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .admin-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .admin-sidebar-link {
+    display: block;
+    padding: 12px 14px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #344054;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+
+  .admin-sidebar-link:hover {
+    background: #f4f7ff;
+    color: #4154f1;
+  }
+
+  .admin-sidebar-link.is-active {
+    background: #eef2ff;
+    color: #4154f1;
+    border-color: rgba(65, 84, 241, 0.18);
+  }
+
   .admin-table th {
     color: #344054;
     font-weight: 700;
@@ -50,6 +99,16 @@
     min-width: 84px;
     border-radius: 12px;
     font-weight: 600;
+  }
+
+  @media (max-width: 767px) {
+    .admin-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .admin-card {
+      padding: 22px;
+    }
   }
 {% endblock %}
 {% block content %}
@@ -73,44 +132,54 @@
       {% endfor %}
     {% endif %}
 
-    <div class="admin-card">
-      <div class="table-responsive">
-        <table class="table admin-table align-middle">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Username</th>
-              <th>Email</th>
-              <th>User Type</th>
-              <th class="text-end">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for user in users %}
+    <div class="admin-layout">
+      <aside class="admin-sidebar">
+        <h3>Toolbar</h3>
+        <nav class="admin-sidebar-nav" aria-label="Admin navigation">
+          <a class="admin-sidebar-link {% if sidebar_active == 'list' %}is-active{% endif %}" href="{% url 'admin_manage' %}">User List</a>
+          <a class="admin-sidebar-link {% if sidebar_active == 'search' %}is-active{% endif %}" href="{% url 'admin_search_user' %}">Search Users</a>
+        </nav>
+      </aside>
+
+      <div class="admin-card">
+        <div class="table-responsive">
+          <table class="table admin-table align-middle">
+            <thead>
               <tr>
-                <td>{{ user.name|default:"-" }}</td>
-                <td>{{ user.username|default:"-" }}</td>
-                <td>{{ user.username_email|default:"-" }}</td>
-                <td>{{ user.type|default:"-" }}</td>
-                <td>
-                  <div class="admin-actions">
-                    <a class="btn btn-outline-primary" href="{% url 'manage_account' %}?user_id={{ user.user_id }}">View</a>
-                    {% if not user.is_current_admin %}
-                    <form method="post" action="{% url 'admin_delete_user' user.user_id %}" onsubmit="return confirm('Delete this user?');">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-danger">Delete</button>
-                    </form>
-                    {% endif %}
-                  </div>
-                </td>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>User Type</th>
+                <th class="text-end">Actions</th>
               </tr>
-            {% empty %}
-              <tr>
-                <td colspan="5" class="text-center text-muted py-4">No users found.</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {% for user in users %}
+                <tr>
+                  <td>{{ user.name|default:"-" }}</td>
+                  <td>{{ user.username|default:"-" }}</td>
+                  <td>{{ user.username_email|default:"-" }}</td>
+                  <td>{{ user.type|default:"-" }}</td>
+                  <td>
+                    <div class="admin-actions">
+                      <a class="btn btn-outline-primary" href="{% url 'manage_account' %}?user_id={{ user.user_id }}">View</a>
+                      {% if not user.is_current_admin %}
+                      <form method="post" action="{% url 'admin_delete_user' user.user_id %}" onsubmit="return confirm('Delete this user?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                      </form>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="5" class="text-center text-muted py-4">No users found.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

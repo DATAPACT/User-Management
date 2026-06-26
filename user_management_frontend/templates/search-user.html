@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+{% block title %}Search User{% endblock %}
+{% block inpagecss %}
+  .account-page {
+    padding: 120px 0 80px;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top right, rgba(65, 84, 241, 0.10), transparent 26%),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+
+  .account-topbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .account-topbar a {
+    color: #4154f1;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .profile-trigger {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(65, 84, 241, 0.25);
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #4154f1;
+    box-shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
+  }
+
+  .account-menu {
+    min-width: 220px;
+    border: none;
+    border-radius: 18px;
+    box-shadow: 0 22px 48px rgba(17, 24, 39, 0.14);
+    padding: 12px;
+  }
+
+  .account-menu a {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 12px;
+    color: #1f2937;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .account-menu a:hover {
+    background: #f4f7ff;
+    color: #4154f1;
+  }
+
+  .welcome-copy h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2a44;
+    margin-bottom: 10px;
+  }
+
+  .welcome-copy p {
+    color: #6b7280;
+    margin-bottom: 0;
+  }
+
+  .account-layout {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .account-sidebar,
+  .search-card {
+    background: #fff;
+    border-radius: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 26px 60px rgba(15, 23, 42, 0.08);
+  }
+
+  .account-sidebar {
+    padding: 20px;
+  }
+
+  .account-sidebar h3 {
+    margin: 0 0 16px;
+    color: #1f2a44;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .account-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .account-sidebar-link {
+    display: block;
+    padding: 12px 14px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #344054;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+
+  .account-sidebar-link:hover {
+    background: #f4f7ff;
+    color: #4154f1;
+  }
+
+  .account-sidebar-link.is-active {
+    background: #eef2ff;
+    color: #4154f1;
+    border-color: rgba(65, 84, 241, 0.18);
+  }
+
+  .search-card {
+    padding: 32px;
+  }
+
+  .search-card-header h3 {
+    margin: 0 0 8px;
+    color: #1f2a44;
+    font-weight: 700;
+  }
+
+  .search-card-header p {
+    color: #6b7280;
+    margin-bottom: 0;
+  }
+
+  .search-form {
+    margin-top: 24px;
+  }
+
+  .search-form .form-label {
+    font-weight: 600;
+    color: #344054;
+  }
+
+  .search-form .form-control {
+    border-radius: 14px;
+    min-height: 48px;
+  }
+
+  .search-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .search-results {
+    margin-top: 28px;
+  }
+
+  .search-results-table {
+    overflow-x: auto;
+  }
+
+  .search-results-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .search-results-table th,
+  .search-results-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
+  }
+
+  .search-results-table th {
+    color: #344054;
+    font-size: 0.92rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .search-results-table td {
+    color: #475467;
+  }
+
+  @media (max-width: 767px) {
+    .account-page {
+      padding-top: 110px;
+    }
+
+    .account-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .search-card {
+      padding: 22px;
+    }
+
+    .search-actions {
+      flex-direction: column;
+    }
+
+    .search-actions .btn {
+      width: 100%;
+    }
+  }
+{% endblock %}
+{% block content %}
+<main class="account-page">
+  <div class="container">
+    <div class="account-topbar">
+      <a href="{% url 'index' %}">Home</a>
+      <div class="dropdown">
+        <button class="profile-trigger" type="button" id="accountMenuButton" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.33 0-6 1.79-6 4v1h12v-1c0-2.21-2.67-4-6-4Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end account-menu" aria-labelledby="accountMenuButton">
+          <a href="{% url 'reset_password' %}">Reset-Password</a>
+          <a href="{% url 'logout' %}">Logout</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="welcome-copy">
+      <h2>{% if is_admin_search_view %}Search Users{% else %}Search User{% endif %}</h2>
+      <p>Search by username, email address, organization, or combine them together.</p>
+    </div>
+
+    <div class="account-alerts">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    <div class="account-layout">
+      <aside class="account-sidebar">
+        <h3>Toolbar</h3>
+        <nav class="account-sidebar-nav" aria-label="{% if is_admin_search_view %}Admin navigation{% else %}Account navigation{% endif %}">
+          {% if is_admin_search_view %}
+          <a class="account-sidebar-link {% if sidebar_active == 'list' %}is-active{% endif %}" href="{% url 'admin_manage' %}">User List</a>
+          <a class="account-sidebar-link {% if sidebar_active == 'search' %}is-active{% endif %}" href="{% url 'admin_search_user' %}">Search Users</a>
+          {% else %}
+          <a class="account-sidebar-link {% if sidebar_active == 'profile' %}is-active{% endif %}" href="{% url 'manage_account' %}">My Profile</a>
+          <a class="account-sidebar-link {% if sidebar_active == 'search' %}is-active{% endif %}" href="{% url 'search_user' %}">Search User</a>
+          {% endif %}
+        </nav>
+      </aside>
+
+      <div class="search-card">
+        <div class="search-card-header">
+          <h3>{% if is_admin_search_view %}Find Users{% else %}Find Users{% endif %}</h3>
+          <p>Username and Email usually match one user. Organization may return multiple users.</p>
+        </div>
+
+        <form method="get" action="{% url 'search_user' %}" class="search-form">
+          <div class="row g-4">
+            <div class="col-12">
+              <label for="username" class="form-label">Username</label>
+              <input type="text" class="form-control" id="username" name="username" value="{{ form_data.username|default:'' }}">
+            </div>
+            <div class="col-12">
+              <label for="user_email" class="form-label">Email address</label>
+              <input type="email" class="form-control" id="user_email" name="user_email" value="{{ form_data.user_email|default:'' }}">
+            </div>
+            <div class="col-12">
+              <label for="organization" class="form-label">Organization</label>
+              <input type="text" class="form-control" id="organization" name="organization" value="{{ form_data.organization|default:'' }}">
+            </div>
+          </div>
+
+          <div class="search-actions">
+            <a href="{% url 'search_user' %}" class="btn btn-light">Clear</a>
+            <button type="submit" class="btn btn-primary">Search</button>
+          </div>
+        </form>
+
+        <div class="search-results">
+          {% if users %}
+            <div class="search-results-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User-ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Organization</th>
+                    <th>User type</th>
+                    <th>View</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for user in users %}
+                    <tr>
+                      <td>{{ user.user_id|default:"-" }}</td>
+                      <td>{{ user.username|default:"-" }}</td>
+                      <td>{{ user.username_email|default:"-" }}</td>
+                      <td>{{ user.organization_text|default:"-" }}</td>
+                      <td>{{ user.type|default:"-" }}</td>
+                      <td>
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'manage_account' %}?user_id={{ user.user_id }}">View</a>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% elif has_searched %}
+            <div class="alert alert-light border mt-3 mb-0">No users matched your search.</div>
+          {% else %}
+            <div class="alert alert-light border mt-3 mb-0">Enter at least one search field, then click Search.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

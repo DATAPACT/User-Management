@@ -1021,22 +1021,59 @@ async def update_user_details(
     return _mask_password(updated_user)
 
 
-@app.get("/user/details/", response_model=User, summary="Get details of a user")
+@app.get("/user/details/", response_model=User | list[User], summary="Get details of a user")
 async def get_user_details(
     user_id: Optional[str] = Query(None, description="ID of the user to fetch"),
     user_email: Optional[EmailStr] = Query(None, description="Email of the user to fetch"),
     keycloak_sub: Optional[str] = Query(None, description="Keycloak user id to fetch"),
-    # current_principal: dict[str, Any] = Depends(verify_access_token_and_resolve_user)
-
-
+    username: Optional[str] = Query(None, description="Username of the user to fetch"),
+    organization: Optional[str] = Query(None, description="Organization of the user to fetch"),
+    current_principal: dict[str, Any] = Depends(verify_access_token_and_resolve_user),
 ):
     try:
+        _principal_user(current_principal)
+
+        normalized_username = (username or "").strip()
+        normalized_organization = (organization or "").strip()
+        normalized_email = str(user_email) if user_email else None
+
+        if normalized_username or normalized_organization:
+            filters: dict[str, Any] = {}
+            if user_id:
+                filters["_id"] = _to_object_id(user_id)
+            if normalized_email:
+                filters["username_email"] = normalized_email
+            if keycloak_sub:
+                filters["keycloak_sub"] = keycloak_sub
+            if normalized_username:
+                filters["username"] = normalized_username
+            if normalized_organization:
+                organization_regex = {
+                    "$regex": f"^{re.escape(normalized_organization)}$",
+                    "$options": "i",
+                }
+                filters["$or"] = [
+                    {"organization": organization_regex},
+                    {"organization": {"$elemMatch": organization_regex}},
+                ]
+
+            if not filters:
+                raise HTTPException(
+                    status_code=400,
+                    detail="At least one search field is required.",
+                )
+
+            users = []
+            cursor = users_collection.find(filters).sort("username_email", 1)
+            async for user in cursor:
+                users.append(_mask_password(user))
+            return users
+
         user = await _find_user(
             user_id=user_id,
-            user_email=str(user_email) if user_email else None,
+            user_email=normalized_email,
             keycloak_sub=keycloak_sub,
         )
-        # _authorize_self_or_admin(current_principal, user)
         return _mask_password(user)
     except HTTPException:
         raise

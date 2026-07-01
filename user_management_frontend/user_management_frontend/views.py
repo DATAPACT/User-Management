@@ -134,9 +134,15 @@ def _auth_headers(request) -> Dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _get_user_details(request, user_id: str) -> Dict[str, Any]:
+def _get_user_details(request, user_id: Optional[str] = None, **extra_params: str) -> Any:
     endpoint_url = f"{API_USER_MANAGEMENT_BASE_URL}/user/details/"
-    response = requests.get(endpoint_url, params={"user_id": user_id}, headers=_auth_headers(request), timeout=10)
+    params: Dict[str, str] = {}
+    if user_id:
+        params["user_id"] = user_id
+    for key, value in extra_params.items():
+        if isinstance(value, str) and value.strip():
+            params[key] = value.strip()
+    response = requests.get(endpoint_url, params=params, headers=_auth_headers(request), timeout=10)
     response.raise_for_status()
     return response.json()
 
@@ -394,6 +400,7 @@ def _to_form_string(value: Any) -> str:
 
 def _build_manage_account_context(user_details: Dict[str, Any], form_data=None):
     active_form_data = form_data or {
+        "user_id": _to_form_string(user_details.get("_id") or user_details.get("id")),
         "first_name": _to_form_string(user_details.get("first_name")),
         "last_name": _to_form_string(user_details.get("last_name")),
         "username": _to_form_string(user_details.get("username")),
@@ -407,6 +414,10 @@ def _build_manage_account_context(user_details: Dict[str, Any], form_data=None):
         "phone_region": _infer_phone_region_name(_to_form_string(user_details.get("phone"))),
         "phone": _to_form_string(user_details.get("phone")),
     }
+    active_form_data.setdefault(
+        "user_id",
+        _to_form_string(user_details.get("_id") or user_details.get("id")),
+    )
     welcome_name = (
         _to_form_string(user_details.get("name"))
         or _build_full_name(user_details.get("first_name"), user_details.get("last_name"))
@@ -420,6 +431,15 @@ def _build_manage_account_context(user_details: Dict[str, Any], form_data=None):
         "phone_region_choices": _load_phone_region_choices(),
         "read_only_mode": False,
         "is_admin_view": False,
+        "sidebar_active": "profile",
+    }
+
+
+def _search_form_data(data) -> Dict[str, str]:
+    return {
+        "username": (data.get("username") or "").strip(),
+        "user_email": (data.get("user_email") or "").strip(),
+        "organization": (data.get("organization") or "").strip(),
     }
 
 
@@ -576,12 +596,9 @@ def manage_account(request):
     is_admin = _is_admin_session(request)
     target_user_id = requested_user_id or session_user_id
 
-    if requested_user_id and not is_admin:
-        messages.error(request, "You are not allowed to view that user.")
-        return redirect("manage_account")
-
     try:
         user_details = _get_user_details(request, target_user_id)
+
     except (requests.RequestException, ValueError):
         messages.error(request, "Could not load your account details right now.")
         return redirect("admin_manage" if is_admin else "login")
@@ -590,13 +607,14 @@ def manage_account(request):
         context = _build_manage_account_context(current_user_details, current_form_data)
         context["read_only_mode"] = read_only
         context["is_admin_view"] = is_admin
+        context["sidebar_active"] = "profile"
         return render(request, "manage-account.html", context)
 
-    read_only_mode = bool(is_admin)
+    read_only_mode = bool(is_admin or target_user_id != session_user_id)
 
     if request.method == "POST":
-        if is_admin:
-            messages.error(request, "Admin view is read-only.")
+        if read_only_mode:
+            messages.error(request, "This profile view is read-only.")
             return render_manage_account(user_details, read_only=read_only_mode)
 
         form_data = _manage_account_form_data(request.POST)
@@ -677,6 +695,107 @@ def manage_account(request):
     return render_manage_account(user_details, read_only=read_only_mode)
 
 
+def search_user(request):
+    session_user_id = _get_logged_in_user_id(request)
+    if not session_user_id:
+        messages.error(request, "Please log in first.")
+        return redirect("login")
+
+    form_data = {"username": "", "user_email": "", "organization": ""}
+    users = []
+
+    if request.method == "GET":
+        form_data = _search_form_data(request.GET)
+        if any(form_data.values()):
+            try:
+                search_result = _get_user_details(request, **form_data)
+                if isinstance(search_result, list):
+                    users = search_result
+                elif isinstance(search_result, dict) and search_result:
+                    users = [search_result]
+                else:
+                    users = []
+            except requests.HTTPError as exc:
+                try:
+                    detail = exc.response.json().get("detail", "Could not search users right now.")
+                except ValueError:
+                    detail = "Could not search users right now."
+                messages.error(request, detail)
+            except (requests.RequestException, ValueError):
+                messages.error(request, "Search service is unavailable right now.")
+
+    normalized_users = []
+    for user in users:
+        normalized_user = dict(user)
+        normalized_user["user_id"] = str(user.get("_id") or user.get("id") or "")
+        normalized_user["organization_text"] = _to_form_string(user.get("organization"))
+        normalized_users.append(normalized_user)
+
+    return render(
+        request,
+        "search-user.html",
+        {
+            "is_sso": True,
+            "is_admin_view": _is_admin_session(request),
+            "sidebar_active": "search",
+            "form_data": form_data,
+            "users": normalized_users,
+            "has_searched": any(form_data.values()),
+        },
+    )
+
+
+def admin_search_user(request):
+    if not _is_admin_session(request):
+        messages.error(request, "Admin access is required.")
+        return redirect("login")
+
+    form_data = {"username": "", "user_email": "", "organization": ""}
+    users = []
+
+    if request.method == "GET":
+        form_data = _search_form_data(request.GET)
+        if any(form_data.values()):
+            try:
+                search_result = _get_user_details(request, **form_data)
+                if isinstance(search_result, list):
+                    users = search_result
+                elif isinstance(search_result, dict) and search_result:
+                    users = [search_result]
+                else:
+                    users = []
+            except requests.HTTPError as exc:
+                try:
+                    detail = exc.response.json().get("detail", "Could not search users right now.")
+                except ValueError:
+                    detail = "Could not search users right now."
+                messages.error(request, detail)
+            except (requests.RequestException, ValueError):
+                messages.error(request, "Search service is unavailable right now.")
+
+    normalized_users = []
+    for user in users:
+        normalized_user = dict(user)
+        normalized_user["user_id"] = str(user.get("_id") or user.get("id") or "")
+        normalized_user["organization_text"] = _to_form_string(user.get("organization"))
+        normalized_user["is_current_admin"] = normalized_user["user_id"] == str(_get_logged_in_user_id(request))
+        normalized_users.append(normalized_user)
+
+    return render(
+        request,
+        "search-user.html",
+        {
+            "is_sso": True,
+            "is_admin_view": True,
+            "sidebar_active": "search",
+            "form_data": form_data,
+            "users": normalized_users,
+            "has_searched": any(form_data.values()),
+            "is_admin_search_view": True,
+        },
+    )
+
+
 def admin_manage(request):
     if not _is_admin_session(request):
         messages.error(request, "Admin access is required.")
@@ -717,7 +836,13 @@ def admin_manage(request):
     return render(
         request,
         "admin-manage.html",
-        {"is_sso": True, "is_admin_view": True, "users": normalized_users, "admin_user_name": admin_user_name},
+        {
+            "is_sso": True,
+            "is_admin_view": True,
+            "users": normalized_users,
+            "admin_user_name": admin_user_name,
+            "sidebar_active": "list",
+        },
     )
 
 def reset_password_view(request):

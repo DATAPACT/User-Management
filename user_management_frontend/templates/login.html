@@ -62,7 +62,7 @@ Then {% url 'login' %} automatically becomes /sign-in/ without changing the temp
 
 {% if messages %}
   {% for message in messages %}
-    <div class="alert alert-danger">
+    <div class="alert {% if 'error' in message.tags %}alert-danger{% elif 'success' in message.tags %}alert-success{% else %}alert-info{% endif %}">
       {{ message }}
     </div>
   {% endfor %}

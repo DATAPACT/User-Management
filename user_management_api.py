@@ -3,7 +3,6 @@ import os
 import re
 from enum import Enum
 from typing import Any, Optional, List, Union
-
 import httpx
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -687,8 +686,21 @@ def _authorize_self_only(current_principal: dict[str, Any], target_user: dict[st
         raise HTTPException(status_code=403, detail="Not authorized for this user")
 
 
+
+
+
+def _to_object_id(user_id: str) -> ObjectId:
+    try:
+        return ObjectId(user_id)
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid user ID.",
+        )
+
 @app.post("/user/login/", summary="Login via Keycloak")
-async def login_user_via_authentication_service(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_user_via_authentication_service(form_data: OAuth2PasswordRequestForm
+                                                = Depends()):
 
     # call ../protocol/openid-connect/token" request an access token
     client_id = KEYCLOAK_CLIENT_ID or "user-management-api"

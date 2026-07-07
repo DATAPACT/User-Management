@@ -3,3 +3,10 @@ demo/
 .codex
 .idea/
 __pycache__/
+
+db.sqlite3
+
+user_management_frontend/db.sqlite3
+/*/db.sqlite3
+user_management_frontend/db.sqlite3
+

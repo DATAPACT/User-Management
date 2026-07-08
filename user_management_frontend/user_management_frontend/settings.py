@@ -10,9 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -27,6 +28,19 @@ SECRET_KEY = "django-insecure-@7_cz$le7=a8+ic7l8w-%4*s$k9(^^6xuju$2wf+jcc+#-5xxp
 
 
 API_USER_MANAGEMENT_BASE_URL = os.getenv("USER_MANAGEMENT_API_URL")
+
+APP_SLUG = "user-management"
+COMPOSE_PROJECT_NAME = os.getenv("COMPOSE_PROJECT_NAME", "").strip().strip("/")
+
+print("COMPOSE_PROJECT_NAME", COMPOSE_PROJECT_NAME)
+_configured_app_base_path = os.getenv("APP_BASE_PATH", "").strip()
+if _configured_app_base_path:
+    APP_BASE_PATH = "/" + _configured_app_base_path.strip("/")
+elif COMPOSE_PROJECT_NAME:
+    APP_BASE_PATH = f"/{COMPOSE_PROJECT_NAME}/{APP_SLUG}"
+else:
+    APP_BASE_PATH = f"/{APP_SLUG}"
+FORCE_SCRIPT_NAME = APP_BASE_PATH
 
 KEYCLOAK_ISSUER = os.environ.get("KEYCLOAK_ISSUER", "")
 if not KEYCLOAK_ISSUER:
@@ -58,6 +72,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "user_management_frontend.base_path.AppBasePathMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

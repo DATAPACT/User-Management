@@ -20,6 +20,7 @@ urlpatterns = [
     path("admin-manage/delete/<str:user_id>/", views.admin_delete_user, name="admin_delete_user"),
     path("reset-password/", views.reset_password_view, name="reset_password"),
     path("logout/", views.logout_view, name="logout"),
+    path("sso-login/", views.sso_login, name="sso_login"),
     path("check-user-email/", views.check_user_email, name="check_user_email"),
     path("check-username/", views.check_username, name="check_username"),
     path("check-strong-password/", views.check_strong_password, name="check_strong_password"),

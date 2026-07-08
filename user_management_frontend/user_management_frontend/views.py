@@ -24,6 +24,7 @@ import phonenumbers
 import time
 from functools import wraps
 from django.shortcuts import redirect
+from django.views.decorators.csrf import csrf_exempt
 
 logger = logging.getLogger(__name__)
 
@@ -1142,6 +1143,41 @@ def login(request):
 
     # For GET requests, just render login page
     return render(request, "login.html")
+
+
+@csrf_exempt  # Keycloak JWT validation provides the request authenticity here.
+def sso_login(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        body = json.loads(request.body)
+        token = body.get("token")
+        if not token:
+            return JsonResponse({"error": "Missing token"}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    if not settings.KEYCLOAK_ISSUER:
+        return JsonResponse({"error": "SSO not configured"}, status=503)
+
+    try:
+        claims = _decode_keycloak_claims(token)
+        user = _resolve_local_session_user_from_claims(claims)
+        is_admin = _claims_has_admin_role(claims)
+    except Exception as exc:
+        logger.error("[SSO] Local user resolution failed: %s", exc)
+        return JsonResponse({"error": "User is not authorized in User-Management"}, status=401)
+
+    request.session["access_token"] = token
+    request.session["user_id"] = user.get("id")
+    request.session["user_type"] = user.get("type")
+    request.session["is_sso"] = True
+    request.session["is_admin"] = is_admin
+    request.session["claims"] = claims
+
+    redirect_name = "admin_manage" if is_admin else "manage_account"
+    return JsonResponse({"status": "ok", "redirect_url": redirect(redirect_name).url})
 
 def logout_view(request):
     request.session.flush()

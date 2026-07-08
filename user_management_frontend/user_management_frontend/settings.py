@@ -16,6 +16,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _normalize_base_path(value):
+    value = (value or "").strip()
+    if not value:
+        return ""
+    return "/" + value.strip("/")
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -31,21 +38,31 @@ API_USER_MANAGEMENT_BASE_URL = os.getenv("USER_MANAGEMENT_API_URL")
 
 APP_SLUG = "user-management"
 COMPOSE_PROJECT_NAME = os.getenv("COMPOSE_PROJECT_NAME", "").strip().strip("/")
-
-print("COMPOSE_PROJECT_NAME", COMPOSE_PROJECT_NAME)
-_configured_app_base_path = os.getenv("APP_BASE_PATH", "").strip()
+DEFAULT_APP_BASE_PATH = f"/{APP_SLUG}"
+_configured_app_base_path = _normalize_base_path(os.getenv("APP_BASE_PATH", ""))
 if _configured_app_base_path:
-    APP_BASE_PATH = "/" + _configured_app_base_path.strip("/")
+    APP_BASE_PATH = _configured_app_base_path
 elif COMPOSE_PROJECT_NAME:
     APP_BASE_PATH = f"/{COMPOSE_PROJECT_NAME}/{APP_SLUG}"
 else:
-    APP_BASE_PATH = f"/{APP_SLUG}"
+    APP_BASE_PATH = DEFAULT_APP_BASE_PATH
+APP_REQUEST_PREFIXES = tuple(
+    dict.fromkeys(
+        prefix
+        for prefix in [
+            APP_BASE_PATH,
+            DEFAULT_APP_BASE_PATH if APP_BASE_PATH != DEFAULT_APP_BASE_PATH else "",
+        ]
+        if prefix
+    )
+)
 FORCE_SCRIPT_NAME = APP_BASE_PATH
 COOKIE_NAME_PREFIX = "_".join(
     part for part in [COMPOSE_PROJECT_NAME.strip().replace("-", "_"), APP_SLUG.replace("-", "_")] if part
 )
 if not COOKIE_NAME_PREFIX:
     COOKIE_NAME_PREFIX = APP_SLUG.replace("-", "_")
+FRAME_ANCESTORS = (os.environ.get("FRAME_ANCESTORS", "") or "").split()
 
 KEYCLOAK_ISSUER = os.environ.get("KEYCLOAK_ISSUER", "")
 if not KEYCLOAK_ISSUER:
@@ -99,6 +116,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "user_management_frontend.context_processors.sso_config",
             ],
         },
     },
@@ -158,6 +176,8 @@ SESSION_COOKIE_PATH = f"{APP_BASE_PATH}/"
 CSRF_COOKIE_PATH = f"{APP_BASE_PATH}/"
 SESSION_COOKIE_NAME = f"{COOKIE_NAME_PREFIX}_sessionid"
 CSRF_COOKIE_NAME = f"{COOKIE_NAME_PREFIX}_csrftoken"
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

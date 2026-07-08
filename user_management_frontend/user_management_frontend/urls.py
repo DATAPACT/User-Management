@@ -1,5 +1,9 @@
+import re
+
+from django.conf import settings
 from django.contrib import admin
-from django.urls import path
+from django.contrib.staticfiles.views import serve as staticfiles_serve
+from django.urls import path, re_path
 
 from . import views
 
@@ -21,3 +25,13 @@ urlpatterns = [
     path("check-strong-password/", views.check_strong_password, name="check_strong_password"),
     path("check-phone-number/", views.check_phone_number, name="check_phone_number"),
 ]
+
+if settings.DEBUG:
+    app_base_path = re.escape(settings.APP_BASE_PATH.strip("/"))
+    urlpatterns += [
+        re_path(r"^static/(?P<path>.*)$", staticfiles_serve),
+    ]
+    if app_base_path:
+        urlpatterns += [
+            re_path(rf"^{app_base_path}/static/(?P<path>.*)$", staticfiles_serve),
+        ]

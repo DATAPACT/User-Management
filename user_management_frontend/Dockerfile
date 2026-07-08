@@ -15,4 +15,4 @@ WORKDIR /app/user_management_frontend
 
 EXPOSE 8801
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8801"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8801", "--nostatic"]

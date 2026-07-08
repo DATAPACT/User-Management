@@ -41,6 +41,11 @@ elif COMPOSE_PROJECT_NAME:
 else:
     APP_BASE_PATH = f"/{APP_SLUG}"
 FORCE_SCRIPT_NAME = APP_BASE_PATH
+COOKIE_NAME_PREFIX = "_".join(
+    part for part in [COMPOSE_PROJECT_NAME.strip().replace("-", "_"), APP_SLUG.replace("-", "_")] if part
+)
+if not COOKIE_NAME_PREFIX:
+    COOKIE_NAME_PREFIX = APP_SLUG.replace("-", "_")
 
 KEYCLOAK_ISSUER = os.environ.get("KEYCLOAK_ISSUER", "")
 if not KEYCLOAK_ISSUER:
@@ -147,8 +152,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = f"{APP_BASE_PATH}/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+SESSION_COOKIE_PATH = f"{APP_BASE_PATH}/"
+CSRF_COOKIE_PATH = f"{APP_BASE_PATH}/"
+SESSION_COOKIE_NAME = f"{COOKIE_NAME_PREFIX}_sessionid"
+CSRF_COOKIE_NAME = f"{COOKIE_NAME_PREFIX}_csrftoken"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

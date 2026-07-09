@@ -93,8 +93,8 @@ client = AsyncIOMotorClient(MONGO_URI)
 db = client[MONGO_DB]
 users_collection = db.users
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login/")
-oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/user/login/", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="user/login/")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="user/login/", auto_error=False)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

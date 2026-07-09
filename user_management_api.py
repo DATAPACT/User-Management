@@ -26,7 +26,15 @@ logger = logging.getLogger(__name__)
 
 load_dotenv(dotenv_path=".env")
 
-root_path = os.getenv("ROOT_PATH", "/user-management-api")
+APP_SLUG = "user-management-api"
+COMPOSE_PROJECT_NAME = (os.getenv("COMPOSE_PROJECT_NAME") or "").strip().strip("/")
+configured_root_path = (os.getenv("ROOT_PATH") or "").strip()
+if configured_root_path:
+    root_path = "/" + configured_root_path.strip("/")
+elif COMPOSE_PROJECT_NAME:
+    root_path = f"/{COMPOSE_PROJECT_NAME}/{APP_SLUG}"
+else:
+    root_path = f"/{APP_SLUG}"
 
 app = FastAPI(
     title="User Management Service API",

@@ -372,7 +372,7 @@ MANAGE_ACCOUNT_FORM_FIELDS = [
     "first_name",
     "last_name",
     "username",
-    "username_email",
+    "email",
     "type",
     "organization",
     "incorporation",
@@ -405,7 +405,7 @@ def _build_manage_account_context(user_details: Dict[str, Any], form_data=None):
         "first_name": _to_form_string(user_details.get("first_name")),
         "last_name": _to_form_string(user_details.get("last_name")),
         "username": _to_form_string(user_details.get("username")),
-        "username_email": _to_form_string(user_details.get("username_email")),
+        "email": _to_form_string(user_details.get("email")),
         "type": _to_form_string(user_details.get("type")),
         "organization": _to_form_string(user_details.get("organization")),
         "incorporation": _to_form_string(user_details.get("incorporation")),
@@ -632,11 +632,11 @@ def manage_account(request):
             messages.error(request, "Username cannot be empty.")
             return render_manage_account(user_details, form_data)
 
-        if not form_data["username_email"]:
+        if not form_data["email"]:
             messages.error(request, "Email cannot be empty.")
             return render_manage_account(user_details, form_data)
 
-        is_valid_email, email_message = _check_valid_email(form_data["username_email"])
+        is_valid_email, email_message = _check_valid_email(form_data["email"])
         if not is_valid_email:
             messages.error(request, email_message)
             return render_manage_account(user_details, form_data)
@@ -648,8 +648,8 @@ def manage_account(request):
                 messages.error(request, "Username already registered, please use another username.")
                 return render_manage_account(user_details, form_data)
 
-        if form_data["username_email"] != _to_form_string(user_details.get("username_email")):
-            email_exists = _check_user_email_exists(form_data["username_email"])
+        if form_data["email"] != _to_form_string(user_details.get("email")):
+            email_exists = _check_user_email_exists(form_data["email"])
 
             if email_exists is True:
                 messages.error(request, "Email already registered, please use another email.")
@@ -667,7 +667,7 @@ def manage_account(request):
             "first_name": form_data["first_name"],
             "last_name": form_data["last_name"],
             "username": form_data["username"],
-            "username_email": form_data["username_email"],
+            "email": form_data["email"],
             "type": form_data["type"] or _to_form_string(user_details.get("type")),
             "organization": form_data["organization"],
             "incorporation": form_data["incorporation"],
@@ -914,7 +914,7 @@ def reset_password_view(request):
         if is_logged_in:
             payload["user_id"] = user_id
         else:
-            payload["username_email"] = email
+            payload["email"] = email
 
         try:
             _update_user_password(request, payload)
@@ -978,7 +978,7 @@ def register(request):
             "name": user_name,
             "username": username,
             "type": user_type,
-            "username_email": email,
+            "email": email,
             "password": password,
             "organization": organization,
             "incorporation": incorporation,

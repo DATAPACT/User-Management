@@ -44,7 +44,7 @@ http://localhost:8800
    - `first_name`
    - `last_name`
    - `name`
-   - `username_email`
+   - `email`
    - other application-specific fields
 5. if MongoDB insert fails, the created Keycloak user is rolled back
 
@@ -54,7 +54,7 @@ Register a user:
 curl -X POST "http://localhost:8800/user/register?master_password_input=master_password"   -H "Content-Type: application/json"   -d '{
     "first_name": "Data",
     "last_name": "Consumer",
-    "username_email": "user@example.com",
+    "email": "user@example.com",
     "password": "StrongPass1!",
     "type": "consumer",
     "organization": "ACME"

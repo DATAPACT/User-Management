@@ -297,8 +297,8 @@
             <div id="usernameAvailability" class="form-text field-feedback" aria-live="polite"></div>
           </div>
           <div class="col-md-6">
-            <label for="username_email" class="form-label">Email address</label>
-            <input type="email" class="form-control editable-field" id="username_email" name="username_email" value="{{ form_data.username_email|default:'' }}" aria-describedby="emailAvailability" disabled>
+            <label for="email" class="form-label">Email address</label>
+            <input type="email" class="form-control editable-field" id="email" name="email" value="{{ form_data.email|default:'' }}" aria-describedby="emailAvailability" disabled>
             <div id="emailAvailability" class="form-text field-feedback" aria-live="polite"></div>
           </div>
           <div class="col-md-6">
@@ -376,7 +376,7 @@
     const cancelButton = document.getElementById("cancelEditButton");
     const saveButton = document.getElementById("saveProfileButton");
     const editableFields = Array.from(form.querySelectorAll(".editable-field"));
-    const emailInput = document.getElementById("username_email");
+    const emailInput = document.getElementById("email");
     const emailAvailability = document.getElementById("emailAvailability");
     const usernameInput = document.getElementById("username");
     const usernameAvailability = document.getElementById("usernameAvailability");

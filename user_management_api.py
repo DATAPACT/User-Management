@@ -120,7 +120,7 @@ class User(MongoObject):
     name: Optional[str] = None
     username: Optional[str] = None
     type: Optional[PartyType] = None
-    username_email: Optional[EmailStr] = None
+    email: Optional[EmailStr] = None
     password: Optional[str] = Field(default=None)
     organization: Optional[Union[List[str], str]] = Field(default=None)
     incorporation: Optional[str] = Field(default=None)
@@ -160,7 +160,7 @@ class UserDetailsUpdate(BaseModel):
     name: Optional[str] = None
     username: Optional[str] = None
     type: Optional[PartyType] = None
-    username_email: Optional[EmailStr] = None
+    email: Optional[EmailStr] = None
     # password: Optional[str] = Field(default=None)
     organization: Optional[Union[List[str], str]] = Field(default=None)
     incorporation: Optional[str] = Field(default=None)
@@ -173,7 +173,7 @@ class UserDetailsUpdate(BaseModel):
 class UserUpdatePassword(BaseModel):
     user_id: Optional[str] = None
     keycloak_sub: Optional[str] = None
-    username_email: Optional[EmailStr] = None
+    email: Optional[EmailStr] = None
     password: Optional[str] = Field(default=None)
 
 
@@ -264,7 +264,7 @@ async def _find_user(
             raise HTTPException(status_code=404, detail="User not found")
 
     if user_email:
-        user_by_email = await users_collection.find_one({"username_email": user_email})
+        user_by_email = await users_collection.find_one({"email": user_email})
         if user_by_email is None:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -317,7 +317,7 @@ async def _find_user_for_password_update(
         users.append(user_by_id)
 
     if user_email:
-        user_by_email = await users_collection.find_one({"username_email": user_email})
+        user_by_email = await users_collection.find_one({"email": user_email})
         if user_by_email is None:
             raise HTTPException(status_code=404, detail="User not found")
         users.append(user_by_email)
@@ -331,7 +331,7 @@ async def _find_user_for_password_update(
     if not users:
         raise HTTPException(
             status_code=400,
-            detail="One of user_id, username_email, or keycloak_sub is required",
+            detail="One of user_id, email, or keycloak_sub is required",
         )
 
     first_user = users[0]
@@ -418,7 +418,7 @@ async def _create_keycloak_user(user: User, raw_password: str, admin_token: str)
     # If Keycloak creation succeeds,
     # it returns the Keycloak user id, stored as keycloak_sub.
 
-    existing_keycloak_user = await _find_keycloak_user_by_email(str(user.username_email), admin_token)
+    existing_keycloak_user = await _find_keycloak_user_by_email(str(user.email), admin_token)
     if existing_keycloak_user is not None:
         raise HTTPException(status_code=400, detail="Email already registered in Keycloak")
 
@@ -434,7 +434,7 @@ async def _create_keycloak_user(user: User, raw_password: str, admin_token: str)
 
     payload = {
         "username": str(user.username),
-        "email": str(user.username_email),
+        "email": str(user.email),
         "enabled": True,
         "emailVerified": True,
         "firstName": user.first_name,
@@ -473,7 +473,7 @@ async def _create_keycloak_user(user: User, raw_password: str, admin_token: str)
     if keycloak_sub:
         return keycloak_sub
 
-    created_user = await _find_keycloak_user_by_email(str(user.username_email), admin_token)
+    created_user = await _find_keycloak_user_by_email(str(user.email), admin_token)
     if not created_user or not created_user.get("id"):
         raise HTTPException(status_code=502, detail="Keycloak user was created but could not be resolved afterwards")
     return str(created_user["id"])
@@ -516,7 +516,7 @@ async def _update_keycloak_user(
 
     payload = {
         "username": updates.get("username"),
-        "email": updates.get("username_email"),
+        "email": updates.get("email"),
         "firstName": updates.get("first_name"),
         "lastName": updates.get("last_name"),
         "attributes": {
@@ -542,7 +542,7 @@ async def _resolve_keycloak_sub_for_user(existing_user: dict[str, Any], admin_to
     if keycloak_sub:
         return str(keycloak_sub)
 
-    email = existing_user.get("username_email")
+    email = existing_user.get("email")
     if not email:
         return None
 
@@ -592,7 +592,7 @@ async def verify_master(master_password_input: str) -> bool:
 
         master_password = get_password_hash(raw_master_password)
         first_admin = {
-            "username_email": "admin@example.com",
+            "email": "admin@example.com",
             "password": master_password,
             "is_admin": True,
         }
@@ -761,9 +761,9 @@ async def register_user(user: User, master_password_input: str):
 
 
     # validating the master password with verify_master(...).
-    # then checks MongoDB for duplicates on username_email, and also checks that username is present and not already
+    # then checks MongoDB for duplicates on email, and also checks that username is present and not already
     # used locally.Password strength is validated with is_strong_password(...).
-    if await users_collection.find_one({"username_email": user.username_email}):
+    if await users_collection.find_one({"email": user.email}):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     if not user.username:
@@ -829,7 +829,7 @@ async def update_user_password(
     Request Body, example:
     {
         "user_id": "<mongo_id>",
-        "username_email": "user@example.com",
+        "email": "user@example.com",
         "keycloak_sub": "<keycloak_id>",
         "password": "NewStrongPass1!"
     }
@@ -859,7 +859,7 @@ async def update_user_password(
 
     existing_user = await _find_user_for_password_update(
         user_id=user_update.user_id,
-        user_email=str(user_update.username_email) if user_update.username_email else None,
+        user_email=str(user_update.email) if user_update.email else None,
         keycloak_sub=user_update.keycloak_sub,
     )
 
@@ -916,7 +916,7 @@ async def update_user_details(
       "name": "Consumer5 Datapack",
       "username": "datapack_consumer5",
       "type": "consumer",
-      "username_email": "datapack_consumer5@example.com",
+      "email": "datapack_consumer5@example.com",
 
       "organization": [
         "SOTON"
@@ -939,13 +939,13 @@ async def update_user_details(
     if not update_fields:
         return _mask_password(existing_user)
 
-    if "username_email" in update_fields:
-        new_email = str(update_fields["username_email"])
-        if new_email != existing_user.get("username_email"):
-            duplicate_user = await users_collection.find_one({"username_email": new_email})
+    if "email" in update_fields:
+        new_email = str(update_fields["email"])
+        if new_email != existing_user.get("email"):
+            duplicate_user = await users_collection.find_one({"email": new_email})
             if duplicate_user and duplicate_user["_id"] != existing_user["_id"]:
                 raise HTTPException(status_code=400, detail="Email already registered")
-            update_fields["username_email"] = new_email
+            update_fields["email"] = new_email
 
     if "username" in update_fields:
         new_username = _clean_optional_string(update_fields["username"])
@@ -986,7 +986,7 @@ async def update_user_details(
 
     keycloak_sync_fields = {
         "username",
-        "username_email",
+        "email",
         "first_name",
         "last_name",
         "type",
@@ -1008,7 +1008,7 @@ async def update_user_details(
                 if existing_keycloak_user and str(existing_keycloak_user.get("id")) != str(keycloak_sub):
                     raise HTTPException(status_code=400, detail="Username already registered in Keycloak")
 
-            new_email = update_fields.get("username_email")
+            new_email = update_fields.get("email")
             if new_email:
                 existing_keycloak_user = await _find_keycloak_user_by_email(str(new_email), admin_token)
                 if existing_keycloak_user and str(existing_keycloak_user.get("id")) != str(keycloak_sub):
@@ -1016,7 +1016,7 @@ async def update_user_details(
 
             keycloak_updates = {
                 "username": update_fields.get("username", existing_user.get("username")),
-                "username_email": update_fields.get("username_email", existing_user.get("username_email")),
+                "email": update_fields.get("email", existing_user.get("email")),
                 "first_name": update_fields.get("first_name", existing_user.get("first_name")),
                 "last_name": update_fields.get("last_name", existing_user.get("last_name")),
                 "type": update_fields.get("type", existing_user.get("type")),
@@ -1062,7 +1062,7 @@ async def get_user_details(
             if user_id:
                 filters["_id"] = _to_object_id(user_id)
             if normalized_email:
-                filters["username_email"] = normalized_email
+                filters["email"] = normalized_email
             if keycloak_sub:
                 filters["keycloak_sub"] = keycloak_sub
             if normalized_username:
@@ -1084,7 +1084,7 @@ async def get_user_details(
                 )
 
             users = []
-            cursor = users_collection.find(filters).sort("username_email", 1)
+            cursor = users_collection.find(filters).sort("email", 1)
             async for user in cursor:
                 users.append(_mask_password(user))
             return users
@@ -1110,7 +1110,7 @@ async def list_users(
     try:
         _require_admin(current_principal)
         users = []
-        cursor = users_collection.find().sort("username_email", 1)
+        cursor = users_collection.find().sort("email", 1)
         async for user in cursor:
             users.append(_mask_password(user))
         return users
@@ -1164,7 +1164,7 @@ async def check_user_email(
 
     # check if it is an existing user
     user = await users_collection.find_one(
-        {"username_email": str(user_email)},
+        {"email": str(user_email)},
         {"_id": 1},
     )
 

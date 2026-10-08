@@ -1212,6 +1212,8 @@ def _require_user_delete_permission(
 
     """
 
+    print("_require_user_delete_permission - current_principal: \n", current_principal)
+
     if current_principal.get("is_admin"):
         return
 

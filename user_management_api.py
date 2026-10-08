@@ -677,6 +677,10 @@ def _principal_user_id(current_principal: dict[str, Any]) -> str:
 
 
 def _require_admin(current_principal: dict[str, Any]) -> None:
+
+    print("require_admin function showing current principal:", current_principal)
+
+
     if not current_principal.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin role required")
 
@@ -1051,6 +1055,10 @@ async def get_user_details(
     current_principal: dict[str, Any] = Depends(verify_access_token_and_resolve_user),
 ):
     try:
+
+        print("/user/details/ endpoint: current_principal", current_principal)
+
+
         _principal_user(current_principal)
 
         normalized_username = (username or "").strip()

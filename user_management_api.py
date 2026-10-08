@@ -678,8 +678,6 @@ def _principal_user_id(current_principal: dict[str, Any]) -> str:
 
 def _require_admin(current_principal: dict[str, Any]) -> None:
 
-    print("require_admin function showing current principal:", current_principal)
-
 
     if not current_principal.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin role required")
@@ -1056,9 +1054,6 @@ async def get_user_details(
 ):
     try:
 
-        print("/user/details/ endpoint: current_principal", current_principal)
-
-
         _principal_user(current_principal)
 
         normalized_username = (username or "").strip()
@@ -1204,22 +1199,61 @@ async def check_username(
 
 
 
+
+def _require_user_delete_permission(
+    current_principal: dict[str, Any],
+    target_user_id: ObjectId,
+) -> None:
+
+    """
+
+    The caller is an admin; or
+    The token’s azp is consent-manager and the target MongoDB user ID matches the authenticated user’s local ID.
+
+    """
+
+    if current_principal.get("is_admin"):
+        return
+
+    claims = current_principal.get("claims") or {}
+    user = current_principal.get("user") or {}
+
+    if (
+        claims.get("azp") == "consent-manager"
+        and user.get("_id") == target_user_id
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="You can only delete your own account through consent-manager",
+    )
+
+
 @app.delete("/user/delete/{user_id}")
 async def delete_user(
     user_id: str,
     current_principal: dict[str, Any] = Depends(verify_access_token_and_resolve_user),
 ):
-    _require_admin(current_principal)
+
+    # _require_admin(current_principal)
+
     try:
         object_id = ObjectId(user_id)
     except InvalidId as exc:
         raise HTTPException(status_code=400, detail="Invalid user id") from exc
+
+    # Admins can still delete users as before. For non-admin users, the endpoint now checks both:
+    # The access token’s azp is consent-manager (the Keycloak Client ID)!
+    # The requested user ID matches the authenticated user’s local MongoDB ID.
+    _require_user_delete_permission(current_principal, object_id)
 
     existing_user = await users_collection.find_one({"_id": object_id})
     if not existing_user:
         raise HTTPException(status_code=404, detail="User not found")
 
     admin_token = await _get_keycloak_admin_token()
+
     await _delete_keycloak_user_for_local_user(existing_user, admin_token)
 
     delete_result = await users_collection.delete_one({"_id": object_id})
